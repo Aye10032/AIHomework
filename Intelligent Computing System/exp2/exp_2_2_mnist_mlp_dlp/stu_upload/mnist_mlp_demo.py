@@ -172,8 +172,8 @@ class MNIST_MLP(object):
         print('Accuracy in test set: %f' % accuracy)
 
 
-HIDDEN1 = 128
-HIDDEN2 = 64
+HIDDEN1 = 200
+HIDDEN2 = 1024
 OUT = 10
 
 

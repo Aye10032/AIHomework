@@ -106,6 +106,7 @@ class MNIST_MLP(object):
         h2 = self.relu2.forward(h2)
         h3 = self.fc3.forward(h2)
         prob = self.softmax.forward(h3)
+        time.sleep(0.1)
         return prob
 
     def backward(self):  # 神经网络的反向传播
@@ -150,7 +151,7 @@ class MNIST_MLP(object):
 
 
 def build_mnist_mlp(param_dir='weight.npy'):
-    h1, h2, e = 128, 64, 20
+    h1, h2, e = 200, 1024, 20
     mlp = MNIST_MLP(batch_size=10000, hidden1=h1, hidden2=h2, max_epoch=e)
     mlp.load_data()
     mlp.build_model()
