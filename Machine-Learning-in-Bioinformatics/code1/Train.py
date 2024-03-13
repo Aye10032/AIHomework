@@ -4,6 +4,7 @@ from sklearn.model_selection import KFold
 from torch.utils.data.dataloader import DataLoader
 from torch import nn, optim
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 from LoadData import MyDataset
 
@@ -13,19 +14,18 @@ print(torch.cuda.is_available())
 dataset = MyDataset(DEVICE)
 
 
-# data_load = DataLoader(dataset, batch_size=64)
-
-
 class MyModel(nn.Module):
     def __init__(self):
         super(MyModel, self).__init__()
 
-        # self.flatten = nn.Flatten()
+        self.flatten = nn.Flatten()
         self.fc = nn.Sequential(
-            nn.Linear(250, 1024),
+            nn.Linear(250, 2048),
             nn.ReLU(),
-            # nn.Dropout(p=0.5),
-            nn.Linear(1024, 1024),
+            nn.Dropout(p=0.5),
+            nn.Linear(2048, 2048),
+            nn.ReLU(),
+            nn.Linear(2048, 1024),
             nn.ReLU(),
             # nn.Dropout(p=0.2),
             nn.Linear(1024, 250)
@@ -33,7 +33,7 @@ class MyModel(nn.Module):
         # self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
-        # x = self.flatten(x)
+        x = self.flatten(x)
         x = self.fc(x)
         # x = self.softmax(x)
 
@@ -75,6 +75,7 @@ for fold, (train_ids, test_ids) in enumerate(k_fold.split(dataset)):
     train_loader = torch.utils.data.DataLoader(dataset, batch_size=32, sampler=train_subsampler)
     test_loader = torch.utils.data.DataLoader(dataset, batch_size=32, sampler=test_subsampler)
 
+    length = len(train_loader) / 32
     epochs = 10
     for epoch in range(epochs):
         model.train()
@@ -94,10 +95,10 @@ for fold, (train_ids, test_ids) in enumerate(k_fold.split(dataset)):
             for inputs, targets in test_loader:
                 output = model(inputs)
                 test_loss += loss_func(output, targets).item()
-                # print(convert_sequence(output[0]), targets[0])
-                correct += (convert_sequence(output) == targets).sum().item()
+
+                correct += torch.sum(convert_sequence(output) == targets).item()
 
         test_loss /= len(test_loader.dataset)
         accuracy = correct / len(test_loader.dataset)
 
-        print(f'Epoch {epoch + 1}/{epochs}, Test Loss: {test_loss} , Test Accuracy: {accuracy}')
+        print(f'Test Loss: {test_loss} , Test Accuracy: {accuracy}')
