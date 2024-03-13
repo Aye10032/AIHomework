@@ -8,6 +8,8 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset, DataLoader
 
+type_dict = {'C': 1, 'E': 2, 'H': 3}
+
 
 def load_data() -> List[Dict]:
     datas = []
@@ -23,14 +25,6 @@ def load_data() -> List[Dict]:
     return datas
 
 
-def collate_fn(batch):
-    seq_batch, ssp_batch = zip(*batch)
-    seq_padded = pad_sequence(seq_batch, batch_first=True, padding_value=0)
-    ssp_padded = pad_sequence(ssp_batch, batch_first=True, padding_value=0)
-
-    return seq_padded, ssp_padded
-
-
 class MyDataset(Dataset):
     def __init__(self, device):
         self.data: list[dict] = load_data()
@@ -42,12 +36,12 @@ class MyDataset(Dataset):
     def __getitem__(self, item):
         seq_str = self.data[item].get('seq')
         seq_list = [ord(letter) - ord('A') + 1 for letter in seq_str]
-        seq_origin = torch.tensor(seq_list, dtype=torch.float16, device=self.device)
+        seq_origin = torch.tensor(seq_list, dtype=torch.float, device=self.device)
         seq = F.pad(seq_origin, (0, 250 - seq_origin.size(0)), mode='constant', value=0)
 
         ssp_str = self.data[item].get('ssp')
-        ssp_list = [ord(letter) - ord('A') + 1 for letter in ssp_str]
-        ssp_origin = torch.tensor(ssp_list, dtype=torch.float16, device=self.device)
+        ssp_list = [type_dict.get(letter) for letter in ssp_str]
+        ssp_origin = torch.tensor(ssp_list, dtype=torch.float, device=self.device)
         ssp = F.pad(ssp_origin, (0, 250 - ssp_origin.size(0)), mode='constant', value=0)
 
         return seq, ssp
