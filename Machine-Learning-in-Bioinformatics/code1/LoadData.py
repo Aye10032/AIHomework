@@ -4,6 +4,7 @@ import tarfile
 from typing import Dict, List
 
 import torch
+import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset, DataLoader
 
@@ -40,17 +41,20 @@ class MyDataset(Dataset):
     def __getitem__(self, item):
         seq_str = self.data[item].get('seq')
         seq_list = [ord(letter) - ord('A') + 1 for letter in seq_str]
-        seq = torch.tensor(seq_list, dtype=torch.float16)
+        seq_origin = torch.tensor(seq_list, dtype=torch.float16)
+        seq = F.pad(seq_origin, (0, 250 - seq_origin.size(0)), mode='constant', value=0)
 
         ssp_str = self.data[item].get('ssp')
         ssp_list = [ord(letter) - ord('A') + 1 for letter in ssp_str]
-        ssp = torch.tensor(ssp_list, dtype=torch.float16)
+        ssp_origin = torch.tensor(ssp_list, dtype=torch.float16)
+        ssp = F.pad(ssp_origin, (0, 250 - ssp_origin.size(0)), mode='constant', value=0)
 
         return seq, ssp
 
 
 if __name__ == '__main__':
     dataset = MyDataset()
-    data_load = DataLoader(dataset, batch_size=32, collate_fn=collate_fn)
+    data_load = DataLoader(dataset, batch_size=64)
 
-    train_features, train_labels = next(iter(data_load))
+    for train_features, train_labels in data_load:
+        print(train_features.shape)
