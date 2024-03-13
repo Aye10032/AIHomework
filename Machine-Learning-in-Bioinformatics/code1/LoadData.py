@@ -5,10 +5,33 @@ from typing import Dict, List
 
 import torch
 import torch.nn.functional as F
-from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset, DataLoader
 
-type_dict = {'C': 1, 'E': 2, 'H': 3}
+# 20种氨基酸序列对应的的字典表
+code_dict = {
+    'A': 0,
+    'F': 1,
+    'C': 2,
+    'D': 3,
+    'N': 4,
+    'E': 5,
+    'Q': 6,
+    'G': 7,
+    'H': 8,
+    'L': 9,
+    'I': 10,
+    'K': 11,
+    'M': 12,
+    'P': 13,
+    'R': 14,
+    'S': 15,
+    'T': 16,
+    'V': 17,
+    'W': 18,
+    'Y': 19
+}
+
+type_dict = {'C': 0, 'E': 1, 'H': 2}
 
 
 def load_data() -> List[Dict]:
@@ -35,14 +58,14 @@ class MyDataset(Dataset):
 
     def __getitem__(self, item):
         seq_str = self.data[item].get('seq')
-        seq_list = [ord(letter) - ord('A') + 1 for letter in seq_str]
-        seq_origin = torch.tensor(seq_list, dtype=torch.float, device=self.device)
-        seq = F.pad(seq_origin, (0, 250 - seq_origin.size(0)), mode='constant', value=0)
+        seq_list = [code_dict.get(letter) for letter in seq_str]
+        seq = torch.zeros((250, 20), dtype=torch.float, device=self.device)
+        seq[range(len(seq_str)), seq_list] = 1
 
         ssp_str = self.data[item].get('ssp')
         ssp_list = [type_dict.get(letter) for letter in ssp_str]
-        ssp_origin = torch.tensor(ssp_list, dtype=torch.float, device=self.device)
-        ssp = F.pad(ssp_origin, (0, 250 - ssp_origin.size(0)), mode='constant', value=0)
+        ssp = torch.zeros((250, 3), dtype=torch.float, device=self.device)
+        ssp[range(len(ssp_str)), ssp_list] = 1
 
         return seq, ssp
 
