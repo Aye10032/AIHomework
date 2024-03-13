@@ -9,29 +9,29 @@ from torch.utils.data import Dataset, DataLoader
 
 # 20种氨基酸序列对应的的字典表
 code_dict = {
-    'A': 0,
-    'F': 1,
-    'C': 2,
-    'D': 3,
-    'N': 4,
-    'E': 5,
-    'Q': 6,
-    'G': 7,
-    'H': 8,
-    'L': 9,
-    'I': 10,
-    'K': 11,
-    'M': 12,
-    'P': 13,
-    'R': 14,
-    'S': 15,
-    'T': 16,
-    'V': 17,
-    'W': 18,
-    'Y': 19
+    'A': 1,
+    'F': 2,
+    'C': 3,
+    'D': 4,
+    'N': 5,
+    'E': 6,
+    'Q': 7,
+    'G': 8,
+    'H': 9,
+    'L': 10,
+    'I': 11,
+    'K': 12,
+    'M': 13,
+    'P': 14,
+    'R': 15,
+    'S': 16,
+    'T': 17,
+    'V': 18,
+    'W': 19,
+    'Y': 20
 }
 
-type_dict = {'C': 0, 'E': 1, 'H': 2}
+type_dict = {'C': 1, 'E': 2, 'H': 3}
 
 
 def load_data() -> List[Dict]:
@@ -59,13 +59,13 @@ class MyDataset(Dataset):
     def __getitem__(self, item):
         seq_str = self.data[item].get('seq')
         seq_list = [code_dict.get(letter) for letter in seq_str]
-        seq = torch.zeros((250, 20), dtype=torch.float, device=self.device)
-        seq[range(len(seq_str)), seq_list] = 1
+        seq_origin = torch.tensor(seq_list, dtype=torch.float, device=self.device, requires_grad=True)
+        seq = F.pad(seq_origin, (0, 250 - seq_origin.size(0)), mode='constant', value=0)
 
         ssp_str = self.data[item].get('ssp')
         ssp_list = [type_dict.get(letter) for letter in ssp_str]
-        ssp = torch.zeros((250, 3), dtype=torch.float, device=self.device)
-        ssp[range(len(ssp_str)), ssp_list] = 1
+        ssp_origin = torch.tensor(ssp_list, dtype=torch.float, device=self.device, requires_grad=True)
+        ssp = F.pad(ssp_origin, (0, 250 - ssp_origin.size(0)), mode='constant', value=0)
 
         return seq, ssp
 
@@ -76,4 +76,4 @@ if __name__ == '__main__':
     data_load = DataLoader(dataset, batch_size=64)
 
     for train_features, train_labels in data_load:
-        print(train_features.shape)
+        print(train_features.shape, train_labels.shape)
