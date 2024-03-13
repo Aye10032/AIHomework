@@ -32,8 +32,9 @@ def collate_fn(batch):
 
 
 class MyDataset(Dataset):
-    def __init__(self):
+    def __init__(self, device):
         self.data: list[dict] = load_data()
+        self.device = device
 
     def __len__(self):
         return len(self.data)
@@ -41,19 +42,20 @@ class MyDataset(Dataset):
     def __getitem__(self, item):
         seq_str = self.data[item].get('seq')
         seq_list = [ord(letter) - ord('A') + 1 for letter in seq_str]
-        seq_origin = torch.tensor(seq_list, dtype=torch.float16)
+        seq_origin = torch.tensor(seq_list, dtype=torch.float16, device=self.device)
         seq = F.pad(seq_origin, (0, 250 - seq_origin.size(0)), mode='constant', value=0)
 
         ssp_str = self.data[item].get('ssp')
         ssp_list = [ord(letter) - ord('A') + 1 for letter in ssp_str]
-        ssp_origin = torch.tensor(ssp_list, dtype=torch.float16)
+        ssp_origin = torch.tensor(ssp_list, dtype=torch.float16, device=self.device)
         ssp = F.pad(ssp_origin, (0, 250 - ssp_origin.size(0)), mode='constant', value=0)
 
         return seq, ssp
 
 
 if __name__ == '__main__':
-    dataset = MyDataset()
+    DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    dataset = MyDataset(DEVICE)
     data_load = DataLoader(dataset, batch_size=64)
 
     for train_features, train_labels in data_load:
