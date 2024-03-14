@@ -31,10 +31,14 @@ code_dict = {
     'Y': 20
 }
 
+# 三种蛋白质二级结构
 type_dict = {'C': 1, 'E': 2, 'H': 3}
 
 
 def load_data() -> List[Dict]:
+    """
+    :return: datas中的每一条序列长度不一定相同
+    """
     datas = []
     with tarfile.open('../dataset/assignment1_data.tar', 'r') as tar:
         for member in tar.getmembers():
@@ -43,31 +47,45 @@ def load_data() -> List[Dict]:
                     byte_stream = io.BytesIO(file.read())
                     data = pickle.load(byte_stream)
 
+                    """
+                    每一条记录中包含一个键值对，分别是seq和ssp，两者长度相同
+                    seq代表氨基酸序列
+                    ssp代表对应的蛋白质二级结构
+                    如：{'seq':'MHPLSIEGAWSQEPVIHSDHRGR','ssp':'CEECCCCCEEEECCCEEEECCEE'}
+                    """
                     datas.append(data)
 
     return datas
 
 
 class MyDataset(Dataset):
-    def __init__(self, device):
+    def __init__(self, device, padding: bool = False):
         self.data: list[dict] = load_data()
         self.device = device
+        self.padding = padding
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, item):
         seq_str = self.data[item].get('seq')
-        seq_list = [code_dict.get(letter) for letter in seq_str]
-        seq_origin = torch.tensor(seq_list, dtype=torch.float, device=self.device, requires_grad=True)
-        seq = F.pad(seq_origin, (0, 250 - seq_origin.size(0)), mode='constant', value=0)
+        seq_origin = torch.tensor([code_dict.get(letter) for letter in seq_str],
+                                  dtype=torch.float,
+                                  device=self.device,
+                                  requires_grad=True)
 
         ssp_str = self.data[item].get('ssp')
-        ssp_list = [type_dict.get(letter) for letter in ssp_str]
-        ssp_origin = torch.tensor(ssp_list, dtype=torch.float, device=self.device, requires_grad=True)
-        ssp = F.pad(ssp_origin, (0, 250 - ssp_origin.size(0)), mode='constant', value=0)
+        ssp_origin = torch.tensor([type_dict.get(letter) for letter in ssp_str],
+                                  dtype=torch.float,
+                                  device=self.device,
+                                  requires_grad=True)
 
-        return seq, ssp
+        if self.padding:
+            seq = F.pad(seq_origin, (0, 250 - seq_origin.size(0)), mode='constant', value=0)
+            ssp = F.pad(ssp_origin, (0, 250 - ssp_origin.size(0)), mode='constant', value=0)
+            return seq, ssp
+        else:
+            return seq_origin, ssp_origin
 
 
 if __name__ == '__main__':
