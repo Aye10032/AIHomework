@@ -62,7 +62,7 @@ for epoch in range(EPOCH):
 
         train_loss += loss.item()
 
-    writer.add_scalar('Loss', train_loss / len(train_loader))
+    writer.add_scalar('Loss', train_loss / len(train_loader), epoch)
 
     correct = 0
     total = 0
@@ -72,7 +72,7 @@ for epoch in range(EPOCH):
         total += labels.shape[0]
         correct += torch.sum(predicted == labels).item()
 
-    writer.add_scalar("Accuracy", correct / total, epoch)
+    writer.add_scalar('Accuracy', correct / total, epoch)
     writer.flush()
     logger.info(f'Accuracy: {correct / total}%, Loss: {train_loss / len(train_loader)}')
 
