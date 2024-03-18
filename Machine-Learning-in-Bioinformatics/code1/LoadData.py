@@ -3,6 +3,7 @@ import pickle
 import tarfile
 from typing import Dict, List
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
@@ -86,6 +87,29 @@ class MyDataset(Dataset):
             return seq, ssp
         else:
             return seq_origin, ssp_origin
+
+
+class OneHotDataset(Dataset):
+    def __init__(self, device):
+        self.data: list[dict] = load_data()
+        self.device = device
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, item):
+        seq_str = self.data[item].get('seq')
+        seq_np = np.zeros((len(seq_str), 20))
+        seq_np[range(len(seq_str)), [code_dict.get(letter) - 1 for letter in seq_str]] = 1
+        seq_tensor = torch.tensor(seq_np, dtype=torch.float, device=self.device, requires_grad=True)
+
+        ssp_str = self.data[item].get('ssp')
+        ssp_tensor = torch.tensor([type_dict.get(letter) - 1 for letter in ssp_str],
+                                  dtype=torch.float,
+                                  device=self.device,
+                                  requires_grad=True)
+
+        return seq_tensor, ssp_tensor
 
 
 if __name__ == '__main__':
