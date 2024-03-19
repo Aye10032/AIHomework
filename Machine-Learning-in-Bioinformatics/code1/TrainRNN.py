@@ -1,62 +1,82 @@
 import torch
+import torch.nn.functional as F
 from loguru import logger
 from torch import nn, optim, Tensor
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from LoadData import OneHotDataset
+from LoadData import OneHotDataset, MyDataset
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 writer = SummaryWriter()
 
 
 class RNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, num_layers):
-        super().__init__()
+    def __init__(self, embedding_dim, hidden_size, input_size, output_size):
+        super(RNN, self).__init__()
+
         self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+
+        self.word_embeddings = nn.Embedding(input_size, embedding_dim)
+        self.lstm = nn.LSTM(embedding_dim, hidden_size)
         self.fc = nn.Linear(hidden_size, output_size)
 
-    def forward(self, x):
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(DEVICE)
-        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(DEVICE)
+        self.hidden = self.init_hidden()
 
-        out, _ = self.lstm(x, (h0, c0))
-        out = self.fc(out)
+    def init_hidden(self):
+        h0 = torch.zeros(1, self.hidden_size).to(DEVICE)
+        c0 = torch.zeros(1, self.hidden_size).to(DEVICE)
+
+        return h0, c0
+
+    def forward(self, x):
+        embeds = self.word_embeddings(x)
+        # print(embeds.shape)
+        lstm_out, self.hidden = self.lstm(embeds, self.hidden)
+        # print(lstm_out.shape)
+        out = self.fc(lstm_out) # .view(x.shape[0], -1)
+        out = F.log_softmax(out, dim=1)
 
         return out
 
 
 INPUT_SIZE = 20
+EMBEDDING_DIM = 32
 HIDDEN_SIZE = 15
-NUM_LAYERS = 2
+NUM_LAYERS = 3
 OUTPUT_SIZE = 3
-LEARNING_RATE = 0.02
+LEARNING_RATE = 0.1
 EPOCH = 10
 
-dataset = OneHotDataset(DEVICE)
+dataset = MyDataset(DEVICE)
 train_size = int(len(dataset) * 0.7)
 test_size = len(dataset) - train_size
 train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True)
-test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=True)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1)
+test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1)
 
-model = RNN(INPUT_SIZE, HIDDEN_SIZE, OUTPUT_SIZE, NUM_LAYERS).to(DEVICE)
-writer.add_graph(model, input_to_model=torch.rand(1, 250, 20).to(DEVICE))
+model = RNN(EMBEDDING_DIM, HIDDEN_SIZE, INPUT_SIZE, OUTPUT_SIZE).to(DEVICE)
 
-criterion = nn.CrossEntropyLoss()
+with torch.no_grad():
+    print(model)
+    # writer.add_graph(model, input_to_model=dataset.__getitem__(0)[0])
+
+loss_function = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
 length = len(train_loader)
 for epoch in range(EPOCH):
+    model.train()
     train_loss = 0
     for i, (sequences, labels) in tqdm(enumerate(train_loader), total=length, desc=f'epoch{epoch}'):
-        outputs = model(sequences)
-        loss = criterion(outputs.view(-1, OUTPUT_SIZE), labels.view(-1).long())
+        model.zero_grad()
+        model.hidden = model.init_hidden()
+        sequences, labels = sequences.squeeze(), labels.squeeze()
 
-        optimizer.zero_grad()
+        outputs = model(sequences)
+
+        loss = loss_function(outputs, labels)
         loss.backward()
         optimizer.step()
 
@@ -64,16 +84,24 @@ for epoch in range(EPOCH):
 
     writer.add_scalar('Loss', train_loss / len(train_loader), epoch)
 
+    model.eval()
     correct = 0
     total = 0
-    for sequences, labels in test_loader:
-        outputs = model(sequences)
-        predicted = torch.argmax(outputs.data, dim=2)
-        total += labels.shape[0]
-        correct += torch.sum(predicted == labels).item()
+    for test_sequences, test_labels in test_loader:
+        test_sequences, test_labels = test_sequences.squeeze(), test_labels.squeeze()
+        # print(test_sequences.shape)
+        outputs = model(test_sequences)
+        # print(outputs.shape)
+        predicted = torch.argmax(outputs.data, dim=1)
+        total += test_labels.shape[0]
+        # print(predicted.shape, test_labels.shape)
+        correct += torch.sum(predicted == test_labels).item()
+        # print(correct, total)
 
     writer.add_scalar('Accuracy', correct / total, epoch)
     writer.flush()
-    logger.info(f'Accuracy: {correct / total}%, Loss: {train_loss / len(train_loader)}')
+
+    if epoch % 10 == 0:
+        logger.info(f'Accuracy: {100 * correct / total}%, Loss: {train_loss / len(train_loader)}')
 
 writer.close()

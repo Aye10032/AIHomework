@@ -12,6 +12,11 @@ DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print(torch.cuda.is_available())
 
 dataset = MyDataset(DEVICE)
+train_size = int(len(dataset) * 0.7)
+test_size = len(dataset) - train_size
+train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True)
+test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=True)
 
 
 class MyModel(nn.Module):
@@ -43,11 +48,11 @@ class MyModel(nn.Module):
 model = MyModel().to(DEVICE)
 print(model)
 
-k_fold = KFold(n_splits=3, shuffle=True)
 opt = optim.Adam(model.parameters())
 loss_func = nn.CrossEntropyLoss()
 
 writer = SummaryWriter()
+writer.add_graph(model, input_to_model=torch.rand(1, 250).to(DEVICE))
 
 
 def convert_sequence(tensor: torch.tensor):
@@ -66,39 +71,26 @@ def convert_sequence(tensor: torch.tensor):
     return tensor
 
 
-for fold, (train_ids, test_ids) in enumerate(k_fold.split(dataset)):
-    logger.info(f'fold {fold}')
+length = len(train_loader) / 32
+epochs = 10
+for epoch in range(epochs):
+    model.train()
+    train_loss = 0
+    for i, (sequences, labels) in tqdm(enumerate(train_loader), total=length, desc=f'epoch{epoch}'):
+        opt.zero_grad()
+        output = model(sequences)
 
-    train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
-    test_subsampler = torch.utils.data.SubsetRandomSampler(test_ids)
+        loss = loss_func(output, labels)
+        loss.backward()
+        opt.step()
 
-    train_loader = torch.utils.data.DataLoader(dataset, batch_size=32, sampler=train_subsampler)
-    test_loader = torch.utils.data.DataLoader(dataset, batch_size=32, sampler=test_subsampler)
+    model.eval()
+    correct = 0
+    with torch.no_grad():
+        for inputs, targets in test_loader:
+            output = model(inputs)
+            correct += torch.sum(convert_sequence(output) == targets).item()
 
-    length = len(train_loader) / 32
-    epochs = 10
-    for epoch in range(epochs):
-        model.train()
+    accuracy = correct / len(test_loader)
 
-        for batch_index, (data, target) in enumerate(train_loader):
-            opt.zero_grad()
-            output = model(data)
-
-            loss = loss_func(output, target)
-            loss.backward()
-            opt.step()
-
-        model.eval()
-        test_loss = 0
-        correct = 0
-        with torch.no_grad():
-            for inputs, targets in test_loader:
-                output = model(inputs)
-                test_loss += loss_func(output, targets).item()
-
-                correct += torch.sum(convert_sequence(output) == targets).item()
-
-        test_loss /= len(test_loader.dataset)
-        accuracy = correct / len(test_loader.dataset)
-
-        print(f'Test Loss: {test_loss} , Test Accuracy: {accuracy}')
+    print(f'Accuracy: {accuracy}')

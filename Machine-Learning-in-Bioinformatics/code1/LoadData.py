@@ -70,16 +70,14 @@ class MyDataset(Dataset):
 
     def __getitem__(self, item):
         seq_str = self.data[item].get('seq')
-        seq_origin = torch.tensor([code_dict.get(letter) for letter in seq_str],
-                                  dtype=torch.float,
-                                  device=self.device,
-                                  requires_grad=True)
+        seq_origin = torch.tensor([code_dict.get(letter) - 1 for letter in seq_str],
+                                  dtype=torch.long,
+                                  device=self.device)
 
         ssp_str = self.data[item].get('ssp')
-        ssp_origin = torch.tensor([type_dict.get(letter) for letter in ssp_str],
-                                  dtype=torch.float,
-                                  device=self.device,
-                                  requires_grad=True)
+        ssp_origin = torch.tensor([type_dict.get(letter) - 1 for letter in ssp_str],
+                                  dtype=torch.long,
+                                  device=self.device)
 
         if self.padding:
             seq = F.pad(seq_origin, (0, 250 - seq_origin.size(0)), mode='constant', value=0)
@@ -117,5 +115,4 @@ if __name__ == '__main__':
     dataset = MyDataset(DEVICE)
     data_load = DataLoader(dataset, batch_size=64)
 
-    for train_features, train_labels in data_load:
-        print(train_features.shape, train_labels.shape)
+    print(dataset.__getitem__(0))
