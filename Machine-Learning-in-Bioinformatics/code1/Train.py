@@ -6,91 +6,107 @@ from torch import nn, optim
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from LoadData import MyDataset
+from LoadData import OneHotDataset
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print(torch.cuda.is_available())
 
-dataset = MyDataset(DEVICE)
-train_size = int(len(dataset) * 0.7)
+dataset = OneHotDataset(DEVICE, True)
+train_size = int(len(dataset) * 0.8)
 test_size = len(dataset) - train_size
 train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True)
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=True)
 
 
-class MyModel(nn.Module):
+class MLP(nn.Module):
     def __init__(self):
-        super(MyModel, self).__init__()
+        super(MLP, self).__init__()
 
-        self.flatten = nn.Flatten()
         self.fc = nn.Sequential(
-            nn.Linear(250, 2048),
+            nn.Linear(20, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
             nn.ReLU(),
             nn.Dropout(p=0.5),
-            nn.Linear(2048, 2048),
-            nn.ReLU(),
-            nn.Linear(2048, 1024),
-            nn.ReLU(),
-            # nn.Dropout(p=0.2),
-            nn.Linear(1024, 250)
+            nn.Linear(64, 3)
         )
-        # self.softmax = nn.Softmax(dim=1)
+        self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, x):
-        x = self.flatten(x)
         x = self.fc(x)
-        # x = self.softmax(x)
+        x = self.softmax(x)
 
         return x
 
 
-model = MyModel().to(DEVICE)
-print(model)
+model = MLP().to(DEVICE)
+
+writer = SummaryWriter(log_dir=f'runs/MLP')
+with torch.no_grad():
+    print(model)
+    writer.add_graph(model, input_to_model=dataset.__getitem__(0)[0].squeeze())
 
 opt = optim.Adam(model.parameters())
-loss_func = nn.CrossEntropyLoss()
+loss_function = nn.CrossEntropyLoss()
 
-writer = SummaryWriter()
-writer.add_graph(model, input_to_model=torch.rand(1, 250).to(DEVICE))
+# length = len(train_loader)
+# for epoch in range(20):  # number of epochs
+#     for i, (sequences, labels) in tqdm(enumerate(train_loader), total=length, desc=f'epoch{epoch}'):
+#         sequences, labels = sequences.squeeze(), labels.squeeze()
+#
+#         opt.zero_grad()
+#         output = model(sequences)
+#         # print(output.shape, labels.shape)
+#         loss = loss_function(output, labels.long())
+#         loss.backward()
+#         opt.step()
+#
+#     print(f'Epoch: {epoch + 1}, Loss: {loss.item()}')
 
-
-def convert_sequence(tensor: torch.tensor):
-    mask_0 = tensor < 0.5
-    tensor = torch.where(mask_0, torch.tensor(0.0, device=DEVICE), tensor)
-
-    mask_1 = (tensor >= 0.5) & (tensor < 1.5)
-    tensor = torch.where(mask_1, torch.tensor(1.0, device=DEVICE), tensor)
-
-    mask_2 = (tensor >= 1.5) & (tensor < 2.5)
-    tensor = torch.where(mask_2, torch.tensor(2.0, device=DEVICE), tensor)
-
-    mask_3 = tensor >= 2.5
-    tensor = torch.where(mask_3, torch.tensor(3.0, device=DEVICE), tensor)
-
-    return tensor
-
-
-length = len(train_loader) / 32
-epochs = 10
+length = len(train_loader)
+epochs = 5
 for epoch in range(epochs):
     model.train()
     train_loss = 0
+    train_correct = 0
+    train_total = 0
     for i, (sequences, labels) in tqdm(enumerate(train_loader), total=length, desc=f'epoch{epoch}'):
         opt.zero_grad()
+        sequences, labels = sequences.squeeze(), labels.squeeze()
+
         output = model(sequences)
 
-        loss = loss_func(output, labels)
+        loss = loss_function(output, labels.long())
         loss.backward()
         opt.step()
 
+        train_total += labels.shape[0]
+        predicted = torch.argmax(output.data, dim=1)
+        train_correct += torch.sum(predicted == labels).item()
+        train_loss += loss.item()
+
+    writer.add_scalar('Train/Acc', train_correct / train_total, epoch)
+    writer.add_scalar('Train/Loss', train_loss / len(train_loader), epoch)
+    writer.flush()
+
     model.eval()
-    correct = 0
-    with torch.no_grad():
-        for inputs, targets in test_loader:
-            output = model(inputs)
-            correct += torch.sum(convert_sequence(output) == targets).item()
+    test_loss = 0
+    test_correct = 0
+    test_total = 0
+    for test_sequences, test_labels in test_loader:
+        test_sequences, test_labels = test_sequences.squeeze(), test_labels.squeeze()
+        outputs = model(test_sequences)
 
-    accuracy = correct / len(test_loader)
+        loss = loss_function(outputs, test_labels.long())
 
-    print(f'Accuracy: {accuracy}')
+        test_total += test_labels.shape[0]
+        predicted = torch.argmax(outputs.data, dim=1)
+        test_correct += torch.sum(predicted == test_labels).item()
+        test_loss += loss.item()
+
+    writer.add_scalar('Test/Acc', test_correct / test_total, epoch)
+    writer.add_scalar('Test/Loss', test_loss / len(test_loader), epoch)
+    writer.flush()
+
+writer.close()

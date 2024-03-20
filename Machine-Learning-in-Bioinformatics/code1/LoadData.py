@@ -88,26 +88,35 @@ class MyDataset(Dataset):
 
 
 class OneHotDataset(Dataset):
-    def __init__(self, device):
+    def __init__(self, device, padding: bool = False):
         self.data: list[dict] = load_data()
         self.device = device
+        self.padding = padding
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, item):
         seq_str = self.data[item].get('seq')
-        seq_np = np.zeros((len(seq_str), 20))
-        seq_np[range(len(seq_str)), [code_dict.get(letter) - 1 for letter in seq_str]] = 1
-        seq_tensor = torch.tensor(seq_np, dtype=torch.float, device=self.device, requires_grad=True)
 
         ssp_str = self.data[item].get('ssp')
-        ssp_tensor = torch.tensor([type_dict.get(letter) - 1 for letter in ssp_str],
-                                  dtype=torch.float,
-                                  device=self.device,
-                                  requires_grad=True)
+        ssp_np = [type_dict.get(letter) - 1 for letter in ssp_str]
 
-        return seq_tensor, ssp_tensor
+        if self.padding:
+            seq_np = np.zeros((250, 20))
+            seq_np[range(len(seq_str)), [code_dict.get(letter) - 1 for letter in seq_str]] = 1
+            seq_tensor = torch.tensor(seq_np, dtype=torch.float, device=self.device, requires_grad=True)
+
+            ssp_origin = torch.tensor(ssp_np, dtype=torch.float, device=self.device, requires_grad=True)
+            ssp_tensor = F.pad(ssp_origin, (0, 250 - ssp_origin.size(0)), mode='constant', value=0)
+            return seq_tensor, ssp_tensor
+        else:
+            seq_np = np.zeros((len(seq_str), 20))
+            seq_np[range(len(seq_str)), [code_dict.get(letter) - 1 for letter in seq_str]] = 1
+            seq_tensor = torch.tensor(seq_np, dtype=torch.float, device=self.device, requires_grad=True)
+
+            ssp_tensor = torch.tensor(ssp_np, dtype=torch.float, device=self.device, requires_grad=True)
+            return seq_tensor, ssp_tensor
 
 
 if __name__ == '__main__':
