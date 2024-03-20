@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from LoadData import OneHotDataset, MyDataset
+from LoadData import MyDataset
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print(DEVICE)
@@ -19,7 +19,7 @@ class RNN(nn.Module):
         self.hidden_size = hidden_size
 
         self.word_embeddings = nn.Embedding(input_size, embedding_dim)
-        self.rnn = nn.RNN(embedding_dim, hidden_size, num_layers=2)
+        self.rnn = nn.LSTM(embedding_dim, hidden_size, num_layers=2)
         self.fc = nn.Linear(hidden_size, output_size)
         self.softmax = nn.LogSoftmax(dim=1)
 
@@ -32,13 +32,13 @@ class RNN(nn.Module):
 
 
 INPUT_SIZE = 20
-EMBEDDING_DIM = 64
-HIDDEN_SIZE = 250
+EMBEDDING_DIM = 20
+HIDDEN_SIZE = 15
 OUTPUT_SIZE = 3
 LEARNING_RATE = 0.01
 EPOCH = 5
 
-writer = SummaryWriter(log_dir=f'runs/RNN_embedding{EMBEDDING_DIM}_hidden{HIDDEN_SIZE}_LR{LEARNING_RATE}')
+writer = SummaryWriter(log_dir=f'runs/MLP_embedding{EMBEDDING_DIM}_hidden{HIDDEN_SIZE}_LR{LEARNING_RATE}')
 
 dataset = MyDataset(DEVICE)
 train_size = int(len(dataset) * 0.8)
