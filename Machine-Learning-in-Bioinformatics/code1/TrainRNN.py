@@ -20,7 +20,10 @@ class RNN(nn.Module):
 
         self.word_embeddings = nn.Embedding(input_size, embedding_dim)
         self.rnn = nn.LSTM(embedding_dim, hidden_size, num_layers=2)
-        self.fc = nn.Linear(hidden_size, output_size)
+        self.fc = nn.Sequential(
+            nn.ReLU(),
+            nn.Linear(hidden_size, output_size),
+        )
         self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, x):
@@ -32,20 +35,20 @@ class RNN(nn.Module):
 
 
 INPUT_SIZE = 20
-EMBEDDING_DIM = 20
-HIDDEN_SIZE = 15
+EMBEDDING_DIM = 32
+HIDDEN_SIZE = 50
 OUTPUT_SIZE = 3
 LEARNING_RATE = 0.01
 EPOCH = 5
 
-writer = SummaryWriter(log_dir=f'runs/MLP_embedding{EMBEDDING_DIM}_hidden{HIDDEN_SIZE}_LR{LEARNING_RATE}')
+writer = SummaryWriter(log_dir=f'runs/LSTM_embedding{EMBEDDING_DIM}_hidden{HIDDEN_SIZE}_LR{LEARNING_RATE}')
 
 dataset = MyDataset(DEVICE)
 train_size = int(len(dataset) * 0.8)
 test_size = len(dataset) - train_size
 train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True)
-test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=True)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1)
+test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1)
 
 model = RNN(EMBEDDING_DIM, HIDDEN_SIZE, INPUT_SIZE, OUTPUT_SIZE).to(DEVICE)
 
