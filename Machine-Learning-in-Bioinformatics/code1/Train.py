@@ -24,10 +24,9 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
 
         self.fc = nn.Sequential(
-            nn.Linear(20, 128),
+            nn.Linear(20, 64),
             nn.ReLU(),
-            nn.Linear(128, 64),
-            nn.ReLU(),
+            nn.Conv1d(250, 250, 3, padding='same'),
             nn.Dropout(p=0.5),
             nn.Linear(64, 3)
         )
@@ -42,7 +41,7 @@ class MLP(nn.Module):
 
 model = MLP().to(DEVICE)
 
-writer = SummaryWriter(log_dir=f'runs/MLP')
+writer = SummaryWriter(log_dir=f'runs/CNN')
 with torch.no_grad():
     print(model)
     writer.add_graph(model, input_to_model=dataset.__getitem__(0)[0].squeeze())
