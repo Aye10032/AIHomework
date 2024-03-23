@@ -55,7 +55,7 @@ def evaluate(vgg):
     return pool5
 
 if __name__ == '__main__':
-    test_conv_and_pool_layer()
+    # test_conv_and_pool_layer()
     print('-------------------------------')
     vgg = VGG19(param_path='../imagenet-vgg-verydeep-19.mat')
     vgg.build_model()
