@@ -1,6 +1,4 @@
 import torch
-from loguru import logger
-from sklearn.model_selection import KFold
 from torch.utils.data.dataloader import DataLoader
 from torch import nn, optim
 from torch.utils.tensorboard import SummaryWriter
@@ -48,20 +46,6 @@ with torch.no_grad():
 
 opt = optim.Adam(model.parameters())
 loss_function = nn.CrossEntropyLoss()
-
-# length = len(train_loader)
-# for epoch in range(20):  # number of epochs
-#     for i, (sequences, labels) in tqdm(enumerate(train_loader), total=length, desc=f'epoch{epoch}'):
-#         sequences, labels = sequences.squeeze(), labels.squeeze()
-#
-#         opt.zero_grad()
-#         output = model(sequences)
-#         # print(output.shape, labels.shape)
-#         loss = loss_function(output, labels.long())
-#         loss.backward()
-#         opt.step()
-#
-#     print(f'Epoch: {epoch + 1}, Loss: {loss.item()}')
 
 length = len(train_loader)
 epochs = 5

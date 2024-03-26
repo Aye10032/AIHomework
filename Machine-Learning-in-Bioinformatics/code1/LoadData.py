@@ -48,12 +48,6 @@ def load_data() -> List[Dict]:
                     byte_stream = io.BytesIO(file.read())
                     data = pickle.load(byte_stream)
 
-                    """
-                    每一条记录中包含一个键值对，分别是seq和ssp，两者长度相同
-                    seq代表氨基酸序列
-                    ssp代表对应的蛋白质二级结构
-                    如：{'seq':'MHPLSIEGAWSQEPVIHSDHRGR','ssp':'CEECCCCCEEEECCCEEEECCEE'}
-                    """
                     datas.append(data)
 
     return datas

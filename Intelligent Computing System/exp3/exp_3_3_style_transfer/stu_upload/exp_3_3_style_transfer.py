@@ -4,15 +4,18 @@ import os
 import scipy.io
 import time
 import sys
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from layers_1 import FullyConnectedLayer, ReLULayer, SoftmaxLossLayer
 from layers_2 import ConvolutionalLayer, MaxPoolingLayer, FlattenLayer
 from layers_3 import ContentLossLayer, StyleLossLayer
 
+
 def show_matrix(mat, name):
-    #print(name + str(mat.shape) + ' mean %f, std %f' % (mat.mean(), mat.std()))
+    # print(name + str(mat.shape) + ' mean %f, std %f' % (mat.mean(), mat.std()))
     pass
+
 
 class VGG19(object):
     def __init__(self, param_path='../../imagenet-vgg-verydeep-19.mat'):
@@ -64,7 +67,7 @@ class VGG19(object):
                 weight, bias = params['layers'][0][idx][0][0][0][0]
                 # matconvnet: weights dim [height, width, in_channel, out_channel]
                 # ours: weights dim [in_channel, height, width, out_channel]
-                weight = np.transpose(weight,[2,0,1,3])
+                weight = np.transpose(weight, [2, 0, 1, 3])
                 bias = bias.reshape(-1)
                 self.layers[self.param_layer_name[idx]].load_param(weight, bias)
 
@@ -72,17 +75,17 @@ class VGG19(object):
         print('Loading and preprocessing image from ' + image_dir)
         self.input_image = scipy.misc.imread(image_dir)
         image_shape = self.input_image.shape
-        self.input_image = scipy.misc.imresize(self.input_image,[image_height, image_width,3])
+        self.input_image = scipy.misc.imresize(self.input_image, [image_height, image_width, 3])
         self.input_image = np.array(self.input_image).astype(np.float32)
         self.input_image -= self.image_mean
-        self.input_image = np.reshape(self.input_image, [1]+list(self.input_image.shape))
+        self.input_image = np.reshape(self.input_image, [1] + list(self.input_image.shape))
         # input dim [N, channel, height, width]
         # TODO: 调整输入数据的形状
-        self.input_image = _______________________
+        self.input_image = np.transpose(self.input_image, [0, 3, 1, 2])
         return self.input_image, image_shape
 
     def save_image(self, input_image, image_shape, image_dir):
-        #print('Save image at ' + image_dir)
+        # print('Save image at ' + image_dir)
         # TODO：调整输出图片的形状
         input_image = ___________________________
         input_image = input_image[0] + self.image_mean
@@ -95,12 +98,12 @@ class VGG19(object):
         current = input_image
         layer_forward = {}
         for idx in range(len(self.param_layer_name)):
-            #print('Inferencing layer: ' + self.param_layer_name[idx])
+            # print('Inferencing layer: ' + self.param_layer_name[idx])
             # TODO： 计算VGG19网络的前向传播
             current = ____________________________
             if self.param_layer_name[idx] in layer_list:
                 layer_forward[self.param_layer_name[idx]] = current
-        #print('Forward time: %f' % (time.time()-start_time))
+        # print('Forward time: %f' % (time.time()-start_time))
         return layer_forward
 
     def backward(self, dloss, layer_name):
@@ -109,13 +112,15 @@ class VGG19(object):
         for idx in range(layer_idx, -1, -1):
             # TODO： 计算VGG19网络的反向传播
             dloss = _____________________________
-        #print('Backward time: %f' % (time.time()-start_time))
+        # print('Backward time: %f' % (time.time()-start_time))
         return dloss
+
 
 def get_random_img(content_image, noise):
     noise_image = np.random.uniform(-20, 20, content_image.shape)
     random_img = noise_image * noise + content_image * (1 - noise)
     return random_img
+
 
 class AdamOptimizer(object):
     def __init__(self, lr, diff_shape):
@@ -126,6 +131,7 @@ class AdamOptimizer(object):
         self.mt = np.zeros(diff_shape)
         self.vt = np.zeros(diff_shape)
         self.step = 0
+
     def update(self, input, grad):
         # TODO：补全参数更新过程
         self.step += 1
@@ -187,11 +193,7 @@ if __name__ == '__main__':
         image_diff = ALPHA * content_diff / len(CONTENT_LOSS_LAYERS) + BETA * style_diff / len(STYLE_LOSS_LAYERS)
         # TODO： 利用Adam优化器对风格迁移图像进行更新
         transfer_image = ____________________________________
-        print("Time of one step: %f"%(time.time() - start))
+        print("Time of one step: %f" % (time.time() - start))
         if step % 1 == 0:
             print('Step %d, loss = %f' % (step, total_loss), content_loss, style_loss)
             vgg.save_image(transfer_image, content_shape, '../output/output_' + str(step) + '.jpg')
-
-
-
-

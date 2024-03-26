@@ -26,12 +26,12 @@ class RNN(nn.Module):
         )
         self.softmax = nn.LogSoftmax(dim=1)
 
-    def forward(self, x):
+    def forward(self, x, hidden):
         embeds = self.word_embeddings(x)
-        rnn_out, _ = self.rnn(embeds)
+        rnn_out, hidden = self.rnn(embeds, hidden)
         out = self.fc(rnn_out)
         out = self.softmax(out)
-        return out
+        return out, hidden
 
 
 INPUT_SIZE = 20
