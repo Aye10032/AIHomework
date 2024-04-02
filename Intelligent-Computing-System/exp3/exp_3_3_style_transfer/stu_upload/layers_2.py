@@ -220,11 +220,16 @@ class MaxPoolingLayer(object):
                         # TODO： 计算最大池化层的前向传播， 取池化窗口内的最大值
                         self.output[idxn, idxc, idxh, idxw] = np.max(
                             self.input[idxn, idxc, idxh * self.stride:idxh * self.stride + self.kernel_size,
-                            idxw * self.stride:idxw * self.stride + self.kernel_size])
+                            idxw * self.stride:idxw * self.stride + self.kernel_size]
+                        )
                         curren_max_index = np.argmax(
                             self.input[idxn, idxc, idxh * self.stride:idxh * self.stride + self.kernel_size,
-                            idxw * self.stride:idxw * self.stride + self.kernel_size])
-                        curren_max_index = np.unravel_index(curren_max_index, [self.kernel_size, self.kernel_size])
+                            idxw * self.stride:idxw * self.stride + self.kernel_size]
+                        )
+                        curren_max_index = np.unravel_index(
+                            curren_max_index,
+                            [self.kernel_size, self.kernel_size]
+                        )
                         self.max_index[
                             idxn, idxc, idxh * self.stride + curren_max_index[0], idxw * self.stride + curren_max_index[
                                 1]] = 1
@@ -256,23 +261,12 @@ class MaxPoolingLayer(object):
         # stamp = time.time()
 
         # [N, C * kernel_size * kernel_size, h_out * w_out]
-        pool_diff = (self.max_index * top_diff[:, :, np.newaxis, :, :]).reshape(self.N, -1,
-                                                                                self.height_out * self.width_out)
+        pool_diff = (
+                self.max_index * top_diff[:, :, np.newaxis, :, :]
+        ).reshape(self.N, -1, self.height_out * self.width_out)
 
         bottom_diff = col2img(pool_diff, self.H, self.W, self.kernel_size, self.C, 0, self.stride)
 
-        # self.backward_time = time.time() - stamp
-        # print "pool: " + str(self.backward_time)
-
-        """ bottom_diff = np.zeros(self.input.shape)
-        idxp = 0
-        step_h = [self.stride*i for i in range(height_out)]
-        step_w = [self.stride*i for i in range(width_out)]
-        for idxh in step_h:
-            for idxw in step_w:
-                bottom_diff[:, :, idxh:idxh+self.kernel_size, idxw:idxw+self.kernel_size] += \
-                    pool_diff[:, :, :, idxp].reshape(N, C, self.kernel_size, self.kernel_size)
-                idxp += 1 """
         return bottom_diff
 
     def backward_raw_book(self, top_diff):
