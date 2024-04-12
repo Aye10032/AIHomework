@@ -52,7 +52,7 @@ def vgg19():
             layer_container.add_module(layer_name, nn.Linear(4096, num_classes))
         elif layer_name == 'softmax':
             # TODO: 在时序容器中执行Softmax计算
-            layer_container.add_module(layer_name, nn.Softmax(dim=0))
+            layer_container.add_module(layer_name, nn.Softmax(dim=1))
     return layer_container
 
 

@@ -55,7 +55,7 @@ def vgg19():
             layer_container.add_module(layer_name, nn.Linear(4096, num_classes))
         elif layer_name == 'softmax':
             # TODO: 在时序容器中执行Softmax计算
-            layer_container.add_module(layer_name, nn.Softmax(dim=0))
+            layer_container.add_module(layer_name, nn.Softmax(dim=1))
     return layer_container
 
 
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     # TODO: 加载网络参数到net中
     net.load_state_dict(torch.load(VGG_PATH))
     # TODO: 模型进入推理模式
-    net.eval().float()
+    net.eval()
 
     example_forward_input = torch.rand((1, 3, 224, 224), dtype=torch.float)
     # TODO: 使用JIT对模型进行trace，把动态图转化为静态图，得到net_trace
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     prob = net_trace(input_image)
     print("mlu370<cnnl backend> infer time:{:.3f} s".format(time.time() - st))
     # TODO: 将prob从MLU设备拷贝到CPU设备
-    prob = prob.to('cpu')
+    prob = prob.cpu()
     with open('./labels/imagenet_classes.txt') as f:
         classes = [line.strip() for line in f.readlines()]
         _, indices = torch.sort(prob, descending=True)
