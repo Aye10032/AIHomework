@@ -254,7 +254,7 @@ if __name__ == '__main__':
                 # TODO: 将图像转换网络fst_train_mlu.pth的参数存储在models/文件夹下
                 torch.save(g_net.state_dict(), './models/fst_train_mlu.pth')
                 # TODO: 利用save_image函数将tensor形式的生成图像mlu_image_g以及输入图像mlu_image_c以jpg左右拼接的形式保存在/out/train_mlu/文件夹下
-                save_image(torch.cat((mlu_image_c[0], mlu_image_g[0]), dim=2), 'out/train_mlu/' + str(count) + '.jpg')
+                save_image(torch.cat((mlu_image_c[0], mlu_image_g[0]), dim=3), 'out/train_mlu/' + str(count) + '.jpg')
         j += 1
 
 print("MLU TRAIN RESULT PASS!\n")
