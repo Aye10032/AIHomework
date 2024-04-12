@@ -147,6 +147,6 @@ if __name__ == '__main__':
         delta_time = end - start
         print("Inference (CPU) processing time: %s" % delta_time)
         # TODO: 利用save_image函数将tensor形式的生成图像image_g以及输入图像image_c以jpg格式左右拼接的形式保存在/out/cpu/文件夹下
-        save_image(image_g, '/out/cpu/', 'jpg')
-        save_image(image_c, '/out/cpu/', 'jpg')
+        save_image(image_g, '/out/cpu/image_g.jpg', 'jpg')
+        save_image(image_c, '/out/cpu/image_c.jpg', 'jpg')
     print("TEST RESULT PASS!\n")
