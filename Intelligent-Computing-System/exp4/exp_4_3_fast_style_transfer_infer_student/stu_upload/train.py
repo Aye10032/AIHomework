@@ -200,7 +200,7 @@ if __name__ == '__main__':
     s4 = s4.detach()
     j = 0
     count = 0
-    epochs = 100
+    epochs = 0
     while j <= epochs:
         for i, image in enumerate(data_loader):
             image_c = image.cpu()
@@ -241,7 +241,7 @@ if __name__ == '__main__':
                 # TODO: 将图像转换网络的参数fst_train.pth存储在models文件夹下
                 torch.save(g_net.state_dict(), './models/fst_train.pth')
                 # TODO: 利用save_image函数将tensor形式的生成图像image_g以及输入图像image_c以jpg左右拼接的形式保存在/out/train/文件夹下
-                save_image(torch.cat((image_c[0], image_g[0]), dim=2), 'out/train/' + str(count) + '.jpg')
+                save_image(torch.cat((image_c, image_g), dim=2), 'out/train/' + str(count) + '.jpg')
         j += 1
 
     print("TRAIN RESULT PASS!\n")
