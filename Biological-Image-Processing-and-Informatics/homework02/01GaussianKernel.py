@@ -1,6 +1,8 @@
 import math
+import os
 from enum import IntEnum
 from loguru import logger
+from utils.Decorator import timer
 
 import cv2
 import numpy as np
@@ -50,6 +52,7 @@ def conv2d(src: np.ndarray, mask: np.ndarray, pad_mode: int = PaddingMode.SAME) 
     return output_img
 
 
+@timer
 def gaussian_filter(src: np.ndarray, sigma: float) -> np.ndarray:
     """
     对图片使用高斯核进行滤波
@@ -73,16 +76,22 @@ def gaussian_filter(src: np.ndarray, sigma: float) -> np.ndarray:
 
 
 def main() -> None:
+    os.makedirs('image/exp1', exist_ok=True)
+
     img = cv2.imread('axon01.tif', cv2.IMREAD_UNCHANGED)
     src_8 = img.astype('uint8')
     cv2.imshow('origin', src_8)
 
-    dst = gaussian_filter(img, 2)
+    sigmas = [1, 2, 5, 7]
 
-    src_8 = img.astype('uint8')
-    cv2.imshow('origin', src_8)
-    img_out = dst.astype('uint8')
-    cv2.imshow('test', img_out)
+    for _sigma in sigmas:
+        dst = gaussian_filter(img, _sigma)
+
+        img_out = dst.astype('uint8')
+        cv2.imshow(f'gauss_sigma_{_sigma}', img_out)
+        cv2.imwrite(f'image/exp1/gauss_sigma_{_sigma}.tif', img_out)
+        cv2.imwrite(f'image/exp1/gauss_sigma_{_sigma}_uint8.tif', dst)
+
     cv2.waitKey(0)
 
 
