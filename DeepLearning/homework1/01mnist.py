@@ -67,7 +67,7 @@ model = Net().to(DEVICE)
 optimizer = Adam(model.parameters(), lr=LR)
 loss_func = CrossEntropyLoss()
 
-writer = SummaryWriter(log_dir=f'runs/Vgg19_LR{LR}')
+writer = SummaryWriter(log_dir=f'runs/mnist_gelu_LR{LR}')
 
 with torch.no_grad():
     print(model)
