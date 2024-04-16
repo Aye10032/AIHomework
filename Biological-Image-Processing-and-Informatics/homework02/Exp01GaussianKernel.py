@@ -28,16 +28,16 @@ def conv2d(src: np.ndarray, mask: np.ndarray, pad_mode: int = PaddingMode.SAME) 
     match pad_mode:
         case PaddingMode.VALID:
             logger.info('padding mode: valid')
-            output_img = np.zeros((_h - offset, _w - offset))
+            output_img = np.zeros((_h - offset, _w - offset), dtype=np.uint16)
 
         case PaddingMode.SAME:
             logger.info('padding mode: same')
-            output_img = np.zeros(src.shape)
+            output_img = np.zeros(src.shape, dtype=np.uint16)
             src = np.pad(src, (int(offset / 2), int(offset / 2)), mode="mean")
 
         case PaddingMode.FULL:
             logger.info('padding mode: full')
-            output_img = np.zeros((_h + offset * 2, _w + offset * 2))
+            output_img = np.zeros((_h + offset * 2, _w + offset * 2), dtype=np.uint16)
             src = np.pad(src, (offset, offset), mode="mean")
 
         case _:
@@ -85,12 +85,12 @@ def main() -> None:
     sigmas = [1, 2, 5, 7]
 
     for _sigma in sigmas:
-        dst = gaussian_filter(img, _sigma)
+        image_gauss = gaussian_filter(img, _sigma)
+        cv2.imwrite(f'image/exp1/gauss_sigma_{_sigma}.tif', image_gauss)
 
-        img_out = dst.astype('uint8')
+        img_out = image_gauss.astype('uint8')
         cv2.imshow(f'gauss_sigma_{_sigma}', img_out)
-        cv2.imwrite(f'image/exp1/gauss_sigma_{_sigma}.tif', img_out)
-        cv2.imwrite(f'image/exp1/gauss_sigma_{_sigma}_uint8.tif', dst)
+        cv2.imwrite(f'image/exp1/gauss_sigma_{_sigma}_uint8.tif', img_out)
 
     cv2.waitKey(0)
 
