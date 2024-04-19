@@ -9,6 +9,7 @@ torch::Tensor hsigmoid_cpu(const torch::Tensor & dets) {
     //TODO: 将输入的tensor转化为浮点类型的vector
     const float* data_ptr = dets.data_ptr<float>();
     std::vector<float> input_data(data_ptr, data_ptr + dets.numel());
+
     int input_size = input_data.size();
     //TODO: 创建一个浮点类型的output_data，output_data为大小与输入相同的vector
     vector<float> output_data(input_size);
@@ -19,7 +20,7 @@ torch::Tensor hsigmoid_cpu(const torch::Tensor & dets) {
     // Create tensor options with dtype float32
     auto opts = torch::TensorOptions().dtype(torch::kFloat32);
     // Create a tensor from the output vector
-    auto foo= torch::from_blob(output_data.data(), {int64_t(output_data.size())}, opts).clone();
+    auto foo = torch::from_blob(output_data.data(), {int64_t(output_data.size())}, opts).clone();
     //TODO: 将得到的tensor reshape为[1,3,512,512]
     auto output = foo.reshape({1, 3, 512, 512});
     return output;
