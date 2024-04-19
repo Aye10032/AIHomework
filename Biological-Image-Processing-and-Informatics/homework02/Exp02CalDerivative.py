@@ -11,12 +11,9 @@ from Exp01GaussianKernel import gaussian_filter
 
 @timer
 def get_v_derivative(src: np.ndarray) -> np.ndarray:
-    output_img = np.zeros(src.shape)
-    src = np.pad(src, (1, 1), "edge")
-    for x in range(output_img.shape[0]):
-        for y in range(output_img.shape[1]):
-            output_img[x, y] = (src[x + 1, y + 2] - src[x + 1, y]) / 2
+    src = np.pad(src, ((0, 0), (1, 1)), "edge")
 
+    output_img = (src[:, 2:] - src[:, :-2]) / 2
     output_img = (output_img / output_img.max()) * 255
     logger.info(f'image type: {output_img.dtype}')
 
@@ -25,12 +22,9 @@ def get_v_derivative(src: np.ndarray) -> np.ndarray:
 
 @timer
 def get_h_derivative(src: np.ndarray) -> np.ndarray:
-    output_img = np.zeros(src.shape)
-    src = np.pad(src, (1, 1), "edge")
-    for x in range(output_img.shape[0]):
-        for y in range(output_img.shape[1]):
-            output_img[x, y] = (src[x + 2, y + 1] - src[x, y + 1]) / 2
+    src = np.pad(src, ((1, 1), (0, 0)), "edge")
 
+    output_img = (src[2:, :] - src[:-2, :]) / 2
     output_img = (output_img / output_img.max()) * 255
     logger.info(f'image type: {output_img.dtype}')
 
