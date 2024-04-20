@@ -16,7 +16,7 @@ def psf(r: np.ndarray, light_wave_l: float, na: float) -> np.ndarray:
 
 
 def gauss(_x: np.ndarray, sigma: float) -> np.ndarray:
-    return np.exp(-x ** 2 / (2 * sigma ** 2))
+    return np.exp(-_x ** 2 / (2 * sigma ** 2))
 
 
 LAMBDA = 0.48
