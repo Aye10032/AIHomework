@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 from scipy.special import j1
 
 
-def psf(r: np.ndarray, light_wave_l, na) -> np.ndarray:
+def psf(r: np.ndarray, light_wave_l: float, na: float) -> np.ndarray:
     k = 2 * np.pi / light_wave_l
     rho = k * na * r
 
@@ -15,7 +15,7 @@ def psf(r: np.ndarray, light_wave_l, na) -> np.ndarray:
     return z
 
 
-def gauss(_x, sigma):
+def gauss(_x: np.ndarray, sigma: float) -> np.ndarray:
     return np.exp(-x ** 2 / (2 * sigma ** 2))
 
 
