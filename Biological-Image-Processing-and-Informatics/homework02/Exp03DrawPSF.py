@@ -22,15 +22,15 @@ def gauss(_x: np.ndarray, sigma: float) -> np.ndarray:
 LAMBDA = 0.48
 NA = 0.5
 
-x = np.linspace(-2, 2, 200)
+x = np.linspace(-1.8, 1.8, 200)
 y = psf(x, LAMBDA, NA)
 r0 = 0.61 * LAMBDA / NA
 y2 = gauss(x, r0 / 3)
 
 sns.set_style('whitegrid')
 fig, ax = plt.subplots()
-sns.lineplot(x=x, y=y, ax=ax)
-sns.lineplot(x=x, y=y2, ax=ax)
+sns.lineplot(x=x, y=y2, ax=ax, color='orange')
+sns.lineplot(x=x, y=y, ax=ax, color='b')
 ax.axvline(x=r0, color='red', linestyle='--')
 
 plt.show()
