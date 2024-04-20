@@ -5,6 +5,14 @@ from scipy.special import j1
 
 
 def psf(r: np.ndarray, light_wave_l: float, na: float) -> np.ndarray:
+    """
+    计算点扩散函数（PSF）
+
+    :param r: 距离中心的距离。
+    :param light_wave_l: 波长
+    :param na: 数值孔径
+    :return: 对应输入距离r的光强
+    """
     k = 2 * np.pi / light_wave_l
     rho = k * na * r
 
