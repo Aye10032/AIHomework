@@ -10,6 +10,10 @@ from loguru import logger
 class Variable:
     LAMBDA: float
     NA: float
+    FIT_SIGMA: float = 0
+
+    def get_sigma(self, ndigits=2):
+        return round((0.61 * self.LAMBDA / self.NA) / 3, ndigits)
 
 
 def psf(r: np.ndarray, light_wave_l: float, na: float) -> np.ndarray:
@@ -38,7 +42,7 @@ variables = [
 
 x = np.linspace(-1.8, 1.8, 200)
 for vari in variables:
-    min_loss, min_sigma = np.inf, 0
+    min_loss = np.inf
     for si in range(1, 600):
         _sigma = 0.005 * si
         y1 = psf(x, vari.LAMBDA, vari.NA)
@@ -46,6 +50,6 @@ for vari in variables:
         loss = abs(np.sum(y1 - y2))
         if loss < min_loss:
             min_loss = loss
-            min_sigma = _sigma
+            vari.FIT_SIGMA = _sigma
 
-    print(min_sigma, (0.61 * vari.LAMBDA / vari.NA) / 3)
+    print(vari.FIT_SIGMA, vari.get_sigma(3))
