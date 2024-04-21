@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.optimize import minimize
+import seaborn as sns
+from matplotlib import pyplot as plt
 from scipy.special import j1
-from loguru import logger
 
 
 @dataclass
@@ -41,15 +41,28 @@ variables = [
 ]
 
 x = np.linspace(-1.8, 1.8, 200)
-for vari in variables:
+sns.set_style('whitegrid')
+fig, axes = plt.subplots(nrows=len(variables), ncols=1, figsize=(8, 4 * len(variables)))
+for index, vari in enumerate(variables):
+    # 拟合方差
     min_loss = np.inf
+    y1 = psf(x, vari.LAMBDA, vari.NA)
     for si in range(1, 600):
         _sigma = 0.005 * si
-        y1 = psf(x, vari.LAMBDA, vari.NA)
         y2 = gauss(x, _sigma)
         loss = abs(np.sum(y1 - y2))
         if loss < min_loss:
             min_loss = loss
             vari.FIT_SIGMA = _sigma
 
-    print(vari.FIT_SIGMA, vari.get_sigma(3))
+    # 绘图
+    ax = axes[index]
+    sns.lineplot(x=x, y=y1, ax=ax, label='PSF')
+    sns.lineplot(x=x, y=gauss(x, vari.FIT_SIGMA), ax=ax, label='gauss')
+    ax.axvline(x=vari.get_sigma() * 3, color='r', linestyle='--', label=r'$\frac{0.61\lambda}{NA}$')
+    ax.axvline(x=vari.FIT_SIGMA * 3, color='g', linestyle='--', label=r'$3\sigma_{fit}$')
+    ax.set_title(fr'$\lambda$: {vari.LAMBDA}, NA: {vari.NA}')
+    ax.legend()
+
+plt.tight_layout()
+plt.show()
