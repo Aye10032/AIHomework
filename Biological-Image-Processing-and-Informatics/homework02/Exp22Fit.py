@@ -12,7 +12,7 @@ class Variable:
     NA: float
     FIT_SIGMA: float = 0
 
-    def get_sigma(self, ndigits=2):
+    def get_sigma(self, ndigits: int = 2) -> float:
         return round((0.61 * self.LAMBDA / self.NA) / 3, ndigits)
 
 
@@ -31,38 +31,44 @@ def gauss(_x: np.ndarray, sigma: float) -> np.ndarray:
     return np.exp(-_x ** 2 / (2 * sigma ** 2))
 
 
-variables = [
-    Variable(0.48, 0.5),
-    Variable(0.52, 0.5),
-    Variable(0.68, 0.5),
-    Variable(0.52, 1.0),
-    Variable(0.52, 1.4),
-    Variable(0.68, 1.5),
-]
+def main() -> None:
+    variables = [
+        Variable(0.48, 0.5),
+        Variable(0.52, 0.5),
+        Variable(0.68, 0.5),
+        Variable(0.52, 1.0),
+        Variable(0.52, 1.4),
+        Variable(0.68, 1.5),
+    ]
 
-x = np.linspace(-1.8, 1.8, 200)
-sns.set_style('whitegrid')
-fig, axes = plt.subplots(nrows=len(variables), ncols=1, figsize=(8, 4 * len(variables)))
-for index, vari in enumerate(variables):
-    # 拟合方差
-    min_loss = np.inf
-    y1 = psf(x, vari.LAMBDA, vari.NA)
-    for si in range(1, 600):
-        _sigma = 0.005 * si
-        y2 = gauss(x, _sigma)
-        loss = abs(np.sum(y1 - y2))
-        if loss < min_loss:
-            min_loss = loss
-            vari.FIT_SIGMA = _sigma
+    x = np.linspace(-1.8, 1.8, 200)
+    sns.set_style('whitegrid')
+    fig, axes = plt.subplots(nrows=len(variables), ncols=1, figsize=(8, 4 * len(variables)))
+    for index, vari in enumerate(variables):
+        # 拟合方差
+        min_loss = np.inf
+        y1 = psf(x, vari.LAMBDA, vari.NA)
+        for si in range(1, 600):
+            _sigma = 0.005 * si
+            y2 = gauss(x, _sigma)
+            loss = abs(np.sum(y1 - y2))
 
-    # 绘图
-    ax = axes[index]
-    sns.lineplot(x=x, y=y1, ax=ax, label='PSF')
-    sns.lineplot(x=x, y=gauss(x, vari.FIT_SIGMA), ax=ax, label='gauss')
-    ax.axvline(x=vari.get_sigma() * 3, color='r', linestyle='--', label=r'$\frac{0.61\lambda}{NA}$')
-    ax.axvline(x=vari.FIT_SIGMA * 3, color='g', linestyle='--', label=r'$3\sigma_{fit}$')
-    ax.set_title(fr'$\lambda$: {vari.LAMBDA}, NA: {vari.NA}')
-    ax.legend()
+            if loss < min_loss:
+                min_loss = loss
+                vari.FIT_SIGMA = _sigma
 
-plt.tight_layout()
-plt.show()
+        # 绘图
+        ax = axes[index]
+        sns.lineplot(x=x, y=y1, ax=ax, label='PSF')
+        sns.lineplot(x=x, y=gauss(x, vari.FIT_SIGMA), ax=ax, label='gauss')
+        ax.axvline(x=vari.get_sigma() * 3, color='r', linestyle='--', label=r'$\frac{0.61\lambda}{NA}$')
+        ax.axvline(x=vari.FIT_SIGMA * 3, color='g', linestyle='--', label=r'$3\sigma_{fit}$')
+        ax.set_title(fr'$\lambda$: {vari.LAMBDA}, NA: {vari.NA}')
+        ax.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+
+if __name__ == '__main__':
+    main()
