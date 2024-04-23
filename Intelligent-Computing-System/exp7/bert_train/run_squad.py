@@ -15,7 +15,6 @@
 # limitations under the License.
 """ Finetuning the library models for question-answering on SQuAD (DistilBERT, Bert, XLM, XLNet)."""
 
-
 import argparse
 import glob
 import logging
@@ -26,6 +25,7 @@ import timeit
 import numpy as np
 import torch
 import torch_mlu
+from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
@@ -49,12 +49,10 @@ from transformers.data.metrics.squad_metrics import (
 from transformers.data.processors.squad import SquadResult, SquadV1Processor, SquadV2Processor
 from transformers.trainer_utils import is_main_process
 
-
 try:
     from torch.utils.tensorboard import SummaryWriter
 except ImportError:
     from tensorboardX import SummaryWriter
-
 
 logger = logging.getLogger(__name__)
 
@@ -81,17 +79,17 @@ def train(args, train_dataset, model, tokenizer):
         tb_writer = SummaryWriter()
 
     args.train_batch_size = args.per_gpu_train_batch_size * max(1, args.n_gpu)
-    #TODO:例化pytorch采样器对训练进行随机采样
-    train_sampler = ____________________________ if args.local_rank == -1 else DistributedSampler(train_dataset)
-    #TODO:调用 Pytorch 的 DataLoader 类，构造可迭代对象 train_dataloader
-    train_dataloader = _______________________________________________________
+    # TODO:例化pytorch采样器对训练进行随机采样
+    train_sampler = RandomSampler(train_dataset) if args.local_rank == -1 else DistributedSampler(train_dataset)
+    # TODO:调用 Pytorch 的 DataLoader 类，构造可迭代对象 train_dataloader
+    train_dataloader = DataLoader(train_dataset, sampler=train_sampler)
 
     if args.max_steps > 0:
         t_total = args.max_steps
         args.num_train_epochs = args.max_steps // (len(train_dataloader) // args.gradient_accumulation_steps) + 1
     else:
         t_total = len(train_dataloader) // args.gradient_accumulation_steps * args.num_train_epochs
-    
+
     ###########################优化器和调度器的设置###################################
     # Prepare optimizer and schedule (linear warmup and decay)
     no_decay = ["bias", "LayerNorm.weight"]
@@ -102,14 +100,14 @@ def train(args, train_dataset, model, tokenizer):
         },
         {"params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": 0.0},
     ]
-    #TODO: 使用 AdamW 优化器，设置参数分组、学习率以及eps
-    optimizer = _______________________________________________________
-    #TODO: 创建学习率调度器，使用get_linear_schedule_with_warmup
-    scheduler = _______________________________________________________
+    # TODO: 使用 AdamW 优化器，设置参数分组、学习率以及eps
+    optimizer = AdamW(optimizer_grouped_parameters)
+    # TODO: 创建学习率调度器，使用get_linear_schedule_with_warmup
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total)
 
     # Check if saved optimizer or scheduler states exist
     if os.path.isfile(os.path.join(args.model_name_or_path, "optimizer.pt")) and os.path.isfile(
-        os.path.join(args.model_name_or_path, "scheduler.pt")
+            os.path.join(args.model_name_or_path, "scheduler.pt")
     ):
         # Load in optimizer and scheduler states
         optimizer.load_state_dict(torch.load(os.path.join(args.model_name_or_path, "optimizer.pt")))
@@ -118,12 +116,12 @@ def train(args, train_dataset, model, tokenizer):
     ##############################分布式混合精度训练设置####################################
     if args.fp16:
         try:
-            #TODO: 调用PyTorch自动混合精度训练的工具，以进行梯度缩放（gradient scaling）实现混合精度训练
-            scaler =_______________________________________________________
+            # TODO: 调用PyTorch自动混合精度训练的工具，以进行梯度缩放（gradient scaling）实现混合精度训练
+            scaler = GradScaler()
         except ImportError:
             raise ImportError("Please install torch.cuda.amp.")
 
-        #model, optimizer = amp.initialize(model, optimizer, opt_level=args.fp16_opt_level)
+        # model, optimizer = amp.initialize(model, optimizer, opt_level=args.fp16_opt_level)
 
     # multi-gpu training (should be after apex fp16 initialization)
     if args.n_gpu > 1:
@@ -134,7 +132,7 @@ def train(args, train_dataset, model, tokenizer):
         model = torch.nn.parallel.DistributedDataParallel(
             model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True
         )
-    
+
     ##############################遍历循环训练############################################
     # Train!
     logger.info("***** Running training *****")
@@ -169,10 +167,10 @@ def train(args, train_dataset, model, tokenizer):
         except ValueError:
             logger.info("  Starting fine-tuning.")
 
-    #TODO: 初始化训练损失
-    tr_loss, logging_loss =________________________________
-    #TODO: 清空模型梯度
-    _______________________________________________________
+    # TODO: 初始化训练损失
+    tr_loss, logging_loss = 0, 0
+    # TODO: 清空模型梯度
+    model.zero_grad()
     train_iterator = trange(
         epochs_trained, int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0]
     )
@@ -188,10 +186,10 @@ def train(args, train_dataset, model, tokenizer):
                 steps_trained_in_current_epoch -= 1
                 continue
 
-            #TODO:将模型设置为训练模式
-            _______________________________________________________
-            #TODO：将批次数据中的每个张量（Tensor）移动到指定的计算设备上
-            batch =___________________________________________________
+            # TODO:将模型设置为训练模式
+            model.train()
+            # TODO：将批次数据中的每个张量（Tensor）移动到指定的计算设备上
+            batch = [t.to(args.device) for t in batch]
 
             inputs = {
                 "input_ids": batch[0],
@@ -214,17 +212,17 @@ def train(args, train_dataset, model, tokenizer):
                     )
 
             if args.fp16:
-                #TODO: 启动Pytorch自动类型转换的上下文管理器，用于自动混合精度训练。
-                with _______________________________________________________
-                    #TODO: 计算模型的输出
-                    outputs = _______________________________________________________
-                    #TODO: 计算模型的loss（outputs是一个tuple ， 它的第0维表示loss) 
-                    loss = _______________________________________________________
+                # TODO: 启动Pytorch自动类型转换的上下文管理器，用于自动混合精度训练。
+                with torch.cuda.amp.autocast(enabled=True):
+                    # TODO: 计算模型的输出
+                    outputs = model(**inputs)
+                    # TODO: 计算模型的loss（outputs是一个tuple ， 它的第0维表示loss)
+                    loss = outputs[0]
             else:
-                #TODO: 计算模型的输出
-                outputs = _______________________________________________________
-               #TODO: 计算模型的loss（outputs是一个tuple ， 它的第0维表示loss) 
-                loss = _______________________________________________________
+                # TODO: 计算模型的输出
+                outputs = model(**inputs)
+                # TODO: 计算模型的loss（outputs是一个tuple ， 它的第0维表示loss)
+                loss = outputs[0]
 
             if args.n_gpu > 1:
                 loss = loss.mean()  # mean() to average on multi-gpu parallel (not distributed) training
@@ -232,29 +230,29 @@ def train(args, train_dataset, model, tokenizer):
                 loss = loss / args.gradient_accumulation_steps
 
             if args.fp16:
-                #TODO: 对scaler进行损失函数的反向传播（注意梯度的缩放）
-                _______________________________________________________
+                # TODO: 对scaler进行损失函数的反向传播（注意梯度的缩放）
+                scaler.scale(loss).backward()
 
             else:
-                #TODO: 进行梯度的反向传播
-                _______________________________________________________
+                # TODO: 进行梯度的反向传播
+                loss.backward()
 
             tr_loss += loss.item()
             if (step + 1) % args.gradient_accumulation_steps == 0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
                 if args.fp16:
-                    #TODO： 使用 scaler 将缩放后的梯度应用于优化器，进行参数更新
-                    _______________________________________________________
-                    #TODO: 更新缩放因子
-                    _______________________________________________________
+                    # TODO： 使用 scaler 将缩放后的梯度应用于优化器，进行参数更新
+                    scaler.step(optimizer)
+                    # TODO: 更新缩放因子
+                    scaler.update()
                 else:
-                    #TODO: 实现模型的参数更新
-                    _______________________________________________________
-                    
-                #TODO：更新学习率调度器
-                _______________________________________________________
-                #TODO：将模型的梯度清零
-                _______________________________________________________
+                    # TODO: 实现模型的参数更新
+                    optimizer.step()
+
+                # TODO：更新学习率调度器
+                scheduler.step()
+                # TODO：将模型的梯度清零
+                model.zero_grad()
                 global_step += 1
 
                 # Log metrics
@@ -273,8 +271,8 @@ def train(args, train_dataset, model, tokenizer):
                     output_dir = os.path.join(args.output_dir, "checkpoint-{}".format(global_step))
                     # Take care of distributed/parallel training
                     model_to_save = model.module if hasattr(model, "module") else model
-                    #TODO: 使用save_pretrained将model_to_save保存到输出路径中
-                    _______________________________________________________
+                    # TODO: 使用save_pretrained将model_to_save保存到输出路径中
+                    model_to_save.save_pretrained(output_dir)
                     tokenizer.save_pretrained(output_dir)
 
                     torch.save(args, os.path.join(output_dir, "training_args.bin"))
@@ -282,10 +280,10 @@ def train(args, train_dataset, model, tokenizer):
 
                     optimizer_save_dir = os.path.join(output_dir, 'optimizer.pt')
                     scheduler_save_dir = os.path.join(output_dir, 'scheduler.pt')
-                    #TODO: 保存优化器的状态字典到指定的文件optimizer_save_dir中
-                    _______________________________________________________
-                    #TODO: 保存学习率调度器的状态字典到指定的文件scheduler_save_dir中
-                    _______________________________________________________
+                    # TODO: 保存优化器的状态字典到指定的文件optimizer_save_dir中
+                    torch.save(optimizer.state_dict(), optimizer_save_dir)
+                    # TODO: 保存学习率调度器的状态字典到指定的文件scheduler_save_dir中
+                    torch.save(scheduler.state_dict(), scheduler_save_dir)
                     logger.info("Saving optimizer and scheduler states to %s", output_dir)
 
             if args.max_steps > 0 and global_step > args.max_steps:
@@ -303,8 +301,8 @@ def train(args, train_dataset, model, tokenizer):
 
 def evaluate(args, model, tokenizer, prefix=""):
     #################################准备评估#######################################
-    #TODO: 调用数据加载模块加载测试样例
-    dataset, examples, features = ___________________________________________________
+    # TODO: 调用数据加载模块加载测试样例
+    dataset, examples, features = load_and_cache_examples(args, tokenizer=tokenizer, output_examples=True)
 
     if not os.path.exists(args.output_dir) and args.local_rank in [-1, 0]:
         os.makedirs(args.output_dir)
@@ -313,8 +311,8 @@ def evaluate(args, model, tokenizer, prefix=""):
 
     # Note that DistributedSampler samples randomly
     eval_sampler = SequentialSampler(dataset)
-    #TODO: 调用 Pytorch 的 DataLoader 类，构造可迭代对象 eval_dataloader
-    eval_dataloader = ___________________________________________________
+    # TODO: 调用 Pytorch 的 DataLoader 类，构造可迭代对象 eval_dataloader
+    eval_dataloader = DataLoader(dataset, sampler=eval_sampler)
 
     # multi-gpu evaluate
     if args.n_gpu > 1 and not isinstance(model, torch.nn.DataParallel):
@@ -330,13 +328,13 @@ def evaluate(args, model, tokenizer, prefix=""):
 
     ##############################执行评估#########################################
     for batch in tqdm(eval_dataloader, desc="Evaluating", mininterval=60):
-        #TODO: 切换到 evaluate 模式，将数据加载到指定设备上
-        ___________________________________________________
-        #TODO：将批次数据中的每个张量（Tensor）移动到指定的计算设备上
-        batch =___________________________________________________
+        # TODO: 切换到 evaluate 模式，将数据加载到指定设备上
+        model.eval()
+        # TODO：将批次数据中的每个张量（Tensor）移动到指定的计算设备上
+        batch = [t.to(args.device) for t in batch]
 
-        #TODO：禁用梯度计算，以避免对模型参数进行更新
-        with ___________________________________________________
+        # TODO：禁用梯度计算，以避免对模型参数进行更新
+        with torch.no_grad():
             inputs = {
                 "input_ids": batch[0],
                 "attention_mask": batch[1],
@@ -357,12 +355,12 @@ def evaluate(args, model, tokenizer, prefix=""):
                         {"langs": (torch.ones(batch[0].shape, dtype=torch.int64) * args.lang_id).to(args.device)}
                     )
             # TODO: inputs数据输入模型
-            outputs = ___________________________________________________
+            outputs = model(**inputs)
 
         for i, feature_index in enumerate(feature_indices):
             eval_feature = features[feature_index.item()]
-            #TODO：将eval_feature对象的唯一标识符（unique_id）转换为整数类型的变量unique_id。
-            unique_id = ___________________________________________________
+            # TODO：将eval_feature对象的唯一标识符（unique_id）转换为整数类型的变量unique_id。
+            unique_id = int(eval_feature.unique_id)
 
             output = [to_list(output[i]) for output in outputs.to_tuple()]
 
@@ -387,15 +385,15 @@ def evaluate(args, model, tokenizer, prefix=""):
             else:
                 start_logits, end_logits = output
                 result = SquadResult(unique_id, start_logits, end_logits)
-            
-            #TODO：将之前创建的 result 对象添加到名为 all_results 的列表中
-            ___________________________________________________________
+
+            # TODO：将之前创建的 result 对象添加到名为 all_results 的列表中
+            all_results.append(result)
 
     ##############################计算评估指标##################################################
-    #TODO：计算评估时间
-    evalTime = ___________________________________________________________
-    #TODO: 使用日志记录器评估所花费的总时间以及每个样本的平均评估时间
-    logger.info("  Evaluation done in total %f secs (%f sec per example)", ______________________________)
+    # TODO：计算评估时间
+    evalTime = start_time - timeit.default_timer()
+    # TODO: 使用日志记录器评估所花费的总时间以及每个样本的平均评估时间
+    logger.info("  Evaluation done in total %f secs (%f sec per example)", evalTime, evalTime)
 
     # Compute predictions
     output_prediction_file = os.path.join(args.output_dir, "predictions_{}.json".format(prefix))
@@ -446,9 +444,9 @@ def evaluate(args, model, tokenizer, prefix=""):
     # Compute the F1 and exact scores.
     results = squad_evaluate(examples, predictions)
     print("******************************************")
-    if (results["f1"]>82.5 and results["exact"]>74 ):
+    if (results["f1"] > 82.5 and results["exact"] > 74):
         print("100 score PASS!")
-    elif (results["f1"]>80 and results["exact"]>70):
+    elif (results["f1"] > 80 and results["exact"] > 70):
         print("80 score PASS!")
     print("******************************************")
     return results
@@ -456,8 +454,8 @@ def evaluate(args, model, tokenizer, prefix=""):
 
 def load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=False):
     if args.local_rank not in [-1, 0] and not evaluate:
-        #TODO: 确保只有第一个进程在分布式训练中处理数据集，其他进程将使用缓存
-        ___________________________________________________________
+        # TODO: 确保只有第一个进程在分布式训练中处理数据集，其他进程将使用缓存
+        torch.distributed.barrier()
 
     # Load data features from cache or dataset file
     input_dir = args.data_dir if args.data_dir else "."
@@ -473,10 +471,10 @@ def load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=Fal
     # Init features and dataset from cache if it exists
     if os.path.exists(cached_features_file) and not args.overwrite_cache:
         logger.info("Loading features from cached file %s", cached_features_file)
-        #TODO: 从缓存文件中加载特征和数据集
-        features_and_dataset = ___________________________________________________________
-        #TODO: 从features_and_dataset字典中分别获取"features"、"dataset"和"examples"字段的值，并赋值给对应的变量
-        features, dataset, examples =___________________________________________________________
+        # TODO: 从缓存文件中加载特征和数据集
+        features_and_dataset = torch.load(cached_features_file)
+        # TODO: 从features_and_dataset字典中分别获取"features"、"dataset"和"examples"字段的值，并赋值给对应的变量
+        features, dataset, examples = features_and_dataset.get('features'), features_and_dataset.get('dataset'), features_and_dataset.get('examples')
     else:
         logger.info("Creating features from dataset file at %s", input_dir)
 
@@ -487,7 +485,7 @@ def load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=Fal
                 raise ImportError("If not data_dir is specified, tensorflow_datasets needs to be installed.")
 
             if args.version_2_with_negative:
-                logger.warn("tensorflow_datasets does not handle version 2 of SQuAD.")
+                logger.warning("tensorflow_datasets does not handle version 2 of SQuAD.")
 
             tfds_examples = tfds.load("squad")
             examples = SquadV1Processor().get_examples_from_dataset(tfds_examples, evaluate=evaluate)
@@ -511,13 +509,13 @@ def load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=Fal
 
         if args.local_rank in [-1, 0]:
             logger.info("Saving features into cached file %s", cached_features_file)
-            #TODO: 使用PyTorch的torch.save函数将"features"、"dataset"和"examples"保存到缓存文件中
-            ___________________________________________________________
+            # TODO: 使用PyTorch的torch.save函数将"features"、"dataset"和"examples"保存到缓存文件中
+            torch.save({'features': features, 'dataset': dataset, 'examples': examples}, cached_features_file)
 
     if args.local_rank == 0 and not evaluate:
         # Make sure only the first process in distributed training process the dataset, and the others will use the cache
-        #TODO: 确保只有第一个进程在分布式训练中处理数据集，其他进程将使用缓存
-        ___________________________________________________________
+        # TODO: 确保只有第一个进程在分布式训练中处理数据集，其他进程将使用缓存
+        torch.distributed.barrier()
 
     if output_examples:
         return dataset, examples, features
@@ -526,8 +524,8 @@ def load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=Fal
 
 def main():
     ###########################参数解析与设置#####################################
-    #TODO：创建参数解析器来处理程序的命令行参数
-    parser = ___________________________________________________________
+    # TODO：创建参数解析器来处理程序的命令行参数
+    parser = argparse.ArgumentParser()
 
     # Required parameters
     parser.add_argument(
@@ -558,21 +556,21 @@ def main():
         default=None,
         type=str,
         help="The input data dir. Should contain the .json files for the task."
-        + "If no data dir or train/predict files are specified, will run with tensorflow_datasets.",
+             + "If no data dir or train/predict files are specified, will run with tensorflow_datasets.",
     )
     parser.add_argument(
         "--train_file",
         default=None,
         type=str,
         help="The input training file. If a data dir is specified, will look for the file there"
-        + "If no data dir or train/predict files are specified, will run with tensorflow_datasets.",
+             + "If no data dir or train/predict files are specified, will run with tensorflow_datasets.",
     )
     parser.add_argument(
         "--predict_file",
         default=None,
         type=str,
         help="The input evaluation file. If a data dir is specified, will look for the file there"
-        + "If no data dir or train/predict files are specified, will run with tensorflow_datasets.",
+             + "If no data dir or train/predict files are specified, will run with tensorflow_datasets.",
     )
     parser.add_argument(
         "--config_name", default="", type=str, help="Pretrained config name or path if not the same as model_name"
@@ -607,7 +605,7 @@ def main():
         default=384,
         type=int,
         help="The maximum total input sequence length after WordPiece tokenization. Sequences "
-        "longer than this will be truncated, and sequences shorter than this will be padded.",
+             "longer than this will be truncated, and sequences shorter than this will be padded.",
     )
     parser.add_argument(
         "--doc_stride",
@@ -620,7 +618,7 @@ def main():
         default=64,
         type=int,
         help="The maximum number of tokens for the question. Questions longer than this will "
-        "be truncated to this length.",
+             "be truncated to this length.",
     )
     parser.add_argument("--do_train", action="store_true", help="Whether to run training.")
     parser.add_argument("--do_eval", action="store_true", help="Whether to run eval on the dev set.")
@@ -666,13 +664,13 @@ def main():
         default=30,
         type=int,
         help="The maximum length of an answer that can be generated. This is needed because the start "
-        "and end predictions are not conditioned on one another.",
+             "and end predictions are not conditioned on one another.",
     )
     parser.add_argument(
         "--verbose_logging",
         action="store_true",
         help="If true, all of the warnings related to data processing will be printed. "
-        "A number of warnings are expected for a normal SQuAD evaluation.",
+             "A number of warnings are expected for a normal SQuAD evaluation.",
     )
     parser.add_argument(
         "--lang_id",
@@ -708,14 +706,14 @@ def main():
         type=str,
         default="O1",
         help="For fp16: Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
-        "See details at https://nvidia.github.io/apex/amp.html",
+             "See details at https://nvidia.github.io/apex/amp.html",
     )
     parser.add_argument("--server_ip", type=str, default="", help="Can be used for distant debugging.")
     parser.add_argument("--server_port", type=str, default="", help="Can be used for distant debugging.")
 
     parser.add_argument("--threads", type=int, default=1, help="multiple threads for converting example to features")
-    #TODO：解析命令行参数并将其转化为一个命名空间对象
-    args = ___________________________________________________________
+    # TODO：解析命令行参数并将其转化为一个命名空间对象
+    args = parser.parse_args()
 
     if args.doc_stride >= args.max_seq_length - args.max_query_length:
         logger.warning(
@@ -725,17 +723,17 @@ def main():
         )
 
     if (
-        os.path.exists(args.output_dir)
-        and os.listdir(args.output_dir)
-        and args.do_train
-        and not args.overwrite_output_dir
+            os.path.exists(args.output_dir)
+            and os.listdir(args.output_dir)
+            and args.do_train
+            and not args.overwrite_output_dir
     ):
         raise ValueError(
             "Output directory ({}) already exists and is not empty. Use --overwrite_output_dir to overcome.".format(
                 args.output_dir
             )
         )
-    
+
     ###########################模型训练与评估###################################
     # Setup distant debugging if needed
     if args.server_ip and args.server_port:
@@ -806,28 +804,28 @@ def main():
         # Make sure only the first process in distributed training will download model & vocab
         torch.distributed.barrier()
 
-    #TODO: 将模型model加载到指定的设备上
-    ___________________________________________________________
+    # TODO: 将模型model加载到指定的设备上
+    model.to(args.device)
 
     logger.info("Training/evaluation parameters %s", args)
 
     # Before we do anything with models, we want to ensure that we get fp16 execution of torch.einsum if args.fp16 is set.
     # Otherwise it'll default to "promote" mode, and we'll get fp32 operations. Note that running `--fp16_opt_level="O2"` will
     # remove the need for this code, but it is still valid.
-#     if args.fp16:
-#         try:
-#             import apex
+    #     if args.fp16:
+    #         try:
+    #             import apex
 
-#             apex.amp.register_half_function(torch, "einsum")
-#         except ImportError:
-#             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
+    #             apex.amp.register_half_function(torch, "einsum")
+    #         except ImportError:
+    #             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
 
     # Training
     if args.do_train:
-        #TODO: 加载和预处理训练数据，并将结果存储在变量 train_dataset 中供后续模型训练使用
-        ___________________________________________________________
-        #TODO: 调用名为 train 的函数来执行训练过程，得到global_step以及tr_loss
-        ___________________________________________________________
+        # TODO: 加载和预处理训练数据，并将结果存储在变量 train_dataset 中供后续模型训练使用
+        train_dataset = load_and_cache_examples(args, tokenizer)
+        # TODO: 调用名为 train 的函数来执行训练过程，得到global_step以及tr_loss
+        global_step, tr_loss = train(args, train_dataset, model, tokenizer)
         logger.info(" global_step = %s, average loss = %s", global_step, tr_loss)
         print("bert train load dataset PASS!")
 
@@ -876,8 +874,8 @@ def main():
             model = AutoModelForQuestionAnswering.from_pretrained(checkpoint)  # , force_download=True)
             model.to(args.device)
 
-            #调用名为 evaluate 的函数来对模型进行评估，并将评估结果存储在变量result中。其中，prefix参数指定评估结果的前缀为global_step。
-            ___________________________________________________________
+            # 调用名为 evaluate 的函数来对模型进行评估，并将评估结果存储在变量result中。其中，prefix参数指定评估结果的前缀为global_step。
+            result = evaluate(args, model, tokenizer, 'global_step')
 
             result = dict((k + ("_{}".format(global_step) if global_step else ""), v) for k, v in result.items())
             results.update(result)
