@@ -302,7 +302,7 @@ def train(args, train_dataset, model, tokenizer):
 def evaluate(args, model, tokenizer, prefix=""):
     #################################准备评估#######################################
     # TODO: 调用数据加载模块加载测试样例
-    dataset, examples, features = load_and_cache_examples(args, tokenizer=tokenizer, output_examples=True)
+    dataset, examples, features = load_and_cache_examples(args, tokenizer=tokenizer, evaluate=True, output_examples=True)
 
     if not os.path.exists(args.output_dir) and args.local_rank in [-1, 0]:
         os.makedirs(args.output_dir)
@@ -474,7 +474,8 @@ def load_and_cache_examples(args, tokenizer, evaluate=False, output_examples=Fal
         # TODO: 从缓存文件中加载特征和数据集
         features_and_dataset = torch.load(cached_features_file)
         # TODO: 从features_and_dataset字典中分别获取"features"、"dataset"和"examples"字段的值，并赋值给对应的变量
-        features, dataset, examples = features_and_dataset.get('features'), features_and_dataset.get('dataset'), features_and_dataset.get('examples')
+        features, dataset, examples = features_and_dataset.get('features'), features_and_dataset.get('dataset'), features_and_dataset.get(
+            'examples')
     else:
         logger.info("Creating features from dataset file at %s", input_dir)
 
