@@ -34,8 +34,8 @@ def get_h_derivative(src: np.ndarray) -> np.ndarray:
 def main() -> None:
     os.makedirs('image/exp2', exist_ok=True)
 
-    image1 = cv2.imread('axon02.tif', cv2.IMREAD_GRAYSCALE).astype('uint16')
-    image2 = cv2.imread('cell_nucleus.tif', cv2.IMREAD_UNCHANGED).astype('uint16')
+    image1 = cv2.imread('image/axon02.tif', cv2.IMREAD_GRAYSCALE).astype('uint16')
+    image2 = cv2.imread('image/cell_nucleus.tif', cv2.IMREAD_UNCHANGED).astype('uint16')
 
     sigmas = [1, 2, 5]
 

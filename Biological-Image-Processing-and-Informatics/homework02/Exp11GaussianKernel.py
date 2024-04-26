@@ -78,7 +78,7 @@ def gaussian_filter(src: np.ndarray, sigma: float) -> np.ndarray:
 def main() -> None:
     os.makedirs('image/exp1', exist_ok=True)
 
-    img = cv2.imread('axon01.tif', cv2.IMREAD_UNCHANGED)
+    img = cv2.imread('image/axon01.tif', cv2.IMREAD_UNCHANGED)
     src_8 = img.astype('uint8')
     cv2.imshow('origin', src_8)
 
