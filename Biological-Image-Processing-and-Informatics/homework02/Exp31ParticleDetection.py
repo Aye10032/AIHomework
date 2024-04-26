@@ -1,9 +1,12 @@
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Any
 
 import cv2
 import numpy as np
 
 from loguru import logger
+from matplotlib import pyplot as plt
+from scipy.spatial import Delaunay
+
 from Exp11GaussianKernel import conv2d, PaddingMode
 from utils.Decorator import timer
 
@@ -75,18 +78,36 @@ def local_min_max(input_mat: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     return local_max, local_min
 
 
+@timer
+def establish_connections(local_max: np.ndarray, local_min: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    max_positions = np.argwhere(local_max == 255)
+    min_positions = np.argwhere(local_min == 255)
+
+    tri = Delaunay(min_positions, incremental=False)
+
+    triangle_in = tri.simplices[tri.find_simplex(max_positions)]
+
+    result = []
+    for i, pos in enumerate(max_positions):
+        result.append({'max': pos, 'min': min_positions[triangle_in[i]]})
+
+    return max_positions, min_positions[triangle_in]
+
+
 def main() -> None:
     init_src = cv2.imread('image/BIP_Project02_image_sequence/001_a5_002_t001.tif', cv2.IMREAD_UNCHANGED)
 
-    mean, std = get_background_noise(init_src)
+    # mean, std = get_background_noise(init_src)
 
     src_gauss = gauss_filter(init_src, 5.15, 1.4)
     cv2.imwrite('image/BIP_Project02_image_sequence/gauss/001_a5_002_t001.tif', src_gauss.astype('uint8'))
 
-    logger.info('start local minima and maxima detect')
     local_maxima, local_minima = local_min_max(src_gauss)
     cv2.imwrite('image/BIP_Project02_image_sequence/minmax/001_a5_002_t001_max.tif', local_maxima.astype('uint8'))
     cv2.imwrite('image/BIP_Project02_image_sequence/minmax/001_a5_002_t001_min.tif', local_minima.astype('uint8'))
+
+    tra_list: tuple[np.ndarray, np.ndarray] = establish_connections(local_maxima, local_minima)
+    logger.info(f'find {tra_list[0].shape[0]} local maxima')
 
     # cv2.waitKey(0)
 
