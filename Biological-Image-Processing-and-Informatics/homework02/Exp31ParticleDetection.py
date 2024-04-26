@@ -1,10 +1,10 @@
-from typing import Tuple, List, Dict, Any
+import os
+from typing import Tuple
 
 import cv2
 import numpy as np
 
 from loguru import logger
-from matplotlib import pyplot as plt
 from scipy.spatial import Delaunay
 
 from Exp11GaussianKernel import conv2d, PaddingMode
@@ -98,22 +98,50 @@ def establish_connections(local_max: np.ndarray, local_min: np.ndarray) -> Tuple
     return max_positions, min_positions[triangle_in]
 
 
+@timer
+def statistical_selection(
+        point_tuple: tuple[np.ndarray, np.ndarray],
+        input_mat: np.ndarray,
+        q: float,
+        sigma: float
+):
+    i_net = (input_mat[point_tuple[0][..., 0], point_tuple[0][..., 1]] -
+             input_mat[point_tuple[1][..., 0], point_tuple[1][..., 1]].sum(axis=1) / 3)
+
+    output = point_tuple[0][i_net > q * sigma]
+    return output
+
+
 def main() -> None:
+    os.makedirs('image/BIP_Project02_image_sequence/gauss', exist_ok=True)
+    os.makedirs('image/BIP_Project02_image_sequence/minmax', exist_ok=True)
+    os.makedirs('image/BIP_Project02_image_sequence/points', exist_ok=True)
+
     init_src = cv2.imread('image/BIP_Project02_image_sequence/001_a5_002_t001.tif', cv2.IMREAD_UNCHANGED)
+    mean, std = get_background_noise(init_src)
+    quantile = 2.5
 
-    src_gauss = gauss_filter(init_src, 5.15, 1.4)
-    cv2.imwrite('image/BIP_Project02_image_sequence/gauss/001_a5_002_t001.tif', src_gauss.astype('uint8'))
+    for i in range(1, 6):
+        file_name = f'001_a5_002_t00{i}'
+        src = cv2.imread(f'image/BIP_Project02_image_sequence/{file_name}.tif', cv2.IMREAD_UNCHANGED)
 
-    mean, std = get_background_noise(src_gauss)
+        src_gauss = gauss_filter(src, 5.15, 1.4)
+        cv2.imwrite(f'image/BIP_Project02_image_sequence/gauss/{file_name}.tif', src_gauss.astype('uint8'))
 
-    local_maxima, local_minima = local_min_max(src_gauss)
-    cv2.imwrite('image/BIP_Project02_image_sequence/minmax/001_a5_002_t001_max.tif', local_maxima.astype('uint8'))
-    cv2.imwrite('image/BIP_Project02_image_sequence/minmax/001_a5_002_t001_min.tif', local_minima.astype('uint8'))
+        local_maxima, local_minima = local_min_max(src_gauss)
+        cv2.imwrite(f'image/BIP_Project02_image_sequence/minmax/{file_name}_max.tif', local_maxima.astype('uint8'))
+        cv2.imwrite(f'image/BIP_Project02_image_sequence/minmax/{file_name}_min.tif', local_minima.astype('uint8'))
 
-    tra_list: tuple[np.ndarray, np.ndarray] = establish_connections(local_maxima, local_minima)
-    logger.info(f'find {tra_list[0].shape[0]} local maxima')
+        tra_list: tuple[np.ndarray, np.ndarray] = establish_connections(local_maxima, local_minima)
+        logger.info(f'find {tra_list[0].shape[0]} local maxima')
 
-    # cv2.waitKey(0)
+        true_max: np.ndarray = statistical_selection(tra_list, src_gauss, quantile, std)
+        logger.info(f'{true_max.shape[0]} points find')
+
+        point_mat = cv2.cvtColor(init_src, cv2.COLOR_GRAY2RGB)
+        for point in true_max:
+            cv2.circle(point_mat, (point[1], point[0]), 3, (0, 255, 0), -1)
+        cv2.imwrite(f'image/BIP_Project02_image_sequence/points/{file_name}.tif', point_mat.astype('uint8'))
 
 
 if __name__ == '__main__':
