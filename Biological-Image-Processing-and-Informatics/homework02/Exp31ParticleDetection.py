@@ -80,6 +80,14 @@ def local_min_max(input_mat: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 
 @timer
 def establish_connections(local_max: np.ndarray, local_min: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    建立最大值点和最小值点之间的连接。
+
+    :param local_max: 包含局部最大值点的numpy数组，其中最大值点被标记为255。
+    :param local_min: 包含局部最小值点的numpy数组，同样，最小值点被标记为255。
+    :return: 一个元组，包含两个numpy数组。第一个是最大值点的位置数组，第二个是与每个最大值点相关联的最小值点的位置数组。
+    """
+
     max_positions = np.argwhere(local_max == 255)
     min_positions = np.argwhere(local_min == 255)
 
@@ -87,20 +95,16 @@ def establish_connections(local_max: np.ndarray, local_min: np.ndarray) -> Tuple
 
     triangle_in = tri.simplices[tri.find_simplex(max_positions)]
 
-    result = []
-    for i, pos in enumerate(max_positions):
-        result.append({'max': pos, 'min': min_positions[triangle_in[i]]})
-
     return max_positions, min_positions[triangle_in]
 
 
 def main() -> None:
     init_src = cv2.imread('image/BIP_Project02_image_sequence/001_a5_002_t001.tif', cv2.IMREAD_UNCHANGED)
 
-    # mean, std = get_background_noise(init_src)
-
     src_gauss = gauss_filter(init_src, 5.15, 1.4)
     cv2.imwrite('image/BIP_Project02_image_sequence/gauss/001_a5_002_t001.tif', src_gauss.astype('uint8'))
+
+    mean, std = get_background_noise(src_gauss)
 
     local_maxima, local_minima = local_min_max(src_gauss)
     cv2.imwrite('image/BIP_Project02_image_sequence/minmax/001_a5_002_t001_max.tif', local_maxima.astype('uint8'))
