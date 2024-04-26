@@ -105,6 +105,16 @@ def statistical_selection(
         q: float,
         sigma: float
 ):
+    """
+    执行假设检验。
+
+    :param point_tuple: 包含局部极值的元组。
+    :param input_mat: 输入图像。
+    :param q: 统计量的阈值。
+    :param sigma: 标准差。
+    :return: 满足条件的点的集合。
+    """
+
     i_net = (input_mat[point_tuple[0][..., 0], point_tuple[0][..., 1]] -
              input_mat[point_tuple[1][..., 0], point_tuple[1][..., 1]].sum(axis=1) / 3)
 
