@@ -63,6 +63,9 @@ def main() -> None:
         sns.lineplot(x=x, y=gauss(x, vari.FIT_SIGMA), ax=ax, label='gauss')
         ax.axvline(x=vari.get_sigma() * 3, color='r', linestyle='--', label=r'$\frac{0.61\lambda}{NA}$')
         ax.axvline(x=vari.FIT_SIGMA * 3, color='g', linestyle='--', label=r'$3\sigma_{fit}$')
+        x_pos = max(vari.get_sigma(3) * 3, vari.FIT_SIGMA * 3) + 0.2
+        ax.annotate(f'{round(vari.get_sigma(3) * 3, 3)}', xy=(x_pos, 0.8), fontsize=12, color='r')
+        ax.annotate(f'{round(vari.FIT_SIGMA * 3, 3)}', xy=(x_pos, 0.7), fontsize=12, color='g')
         ax.set_title(fr'$\lambda$: {vari.LAMBDA}, NA: {vari.NA}')
         ax.legend()
 
