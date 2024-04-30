@@ -53,15 +53,15 @@ def main() -> None:
         image1_dv: np.ndarray = get_v_derivative(image1_gauss)
         image1_dh: np.ndarray = get_h_derivative(image1_gauss)
 
-        cv2.imwrite(f'image/exp1/derivative/axon02_gauss_sigma_{_sigma}_dv.png', image1_dv)
-        cv2.imwrite(f'image/exp1/derivative/axon02_gauss_sigma_{_sigma}_dh.png', image1_dh)
+        cv2.imwrite(f'image/exp1/derivative/axon02_gauss_sigma_{_sigma}_dv.tif', image1_dv)
+        cv2.imwrite(f'image/exp1/derivative/axon02_gauss_sigma_{_sigma}_dh.tif', image1_dh)
 
         image2_gauss = gaussian_filter(image2, _sigma)
         image2_dv = get_v_derivative(image2_gauss)
         image2_dh = get_h_derivative(image2_gauss)
 
-        cv2.imwrite(f'image/exp1/derivative/cell_nucleus_gauss_sigma_{_sigma}_dv.png', image2_dv)
-        cv2.imwrite(f'image/exp1/derivative/cell_nucleus_gauss_sigma_{_sigma}_dh.png', image2_dh)
+        cv2.imwrite(f'image/exp1/derivative/cell_nucleus_gauss_sigma_{_sigma}_dv.tif', image2_dv)
+        cv2.imwrite(f'image/exp1/derivative/cell_nucleus_gauss_sigma_{_sigma}_dh.tif', image2_dh)
 
 
 if __name__ == '__main__':
