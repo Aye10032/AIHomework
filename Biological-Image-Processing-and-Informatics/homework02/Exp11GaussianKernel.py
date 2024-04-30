@@ -76,21 +76,19 @@ def gaussian_filter(src: np.ndarray, sigma: float) -> np.ndarray:
 
 
 def main() -> None:
-    os.makedirs('image/exp1', exist_ok=True)
+    os.makedirs('image/exp1/filter', exist_ok=True)
 
     img = cv2.imread('image/axon01.tif', cv2.IMREAD_UNCHANGED)
-    src_8 = img.astype('uint8')
-    cv2.imshow('origin', src_8)
 
     sigmas = [1, 2, 5, 7]
 
     for _sigma in sigmas:
         image_gauss = gaussian_filter(img, _sigma)
-        cv2.imwrite(f'image/exp1/gauss_sigma_{_sigma}.tif', image_gauss)
+        # cv2.imwrite(f'image/exp1/filter/gauss_sigma_{_sigma}.tif', image_gauss)
 
         img_out = image_gauss.astype('uint8')
-        cv2.imshow(f'gauss_sigma_{_sigma}', img_out)
-        cv2.imwrite(f'image/exp1/gauss_sigma_{_sigma}_uint8.tif', img_out)
+        # cv2.imshow(f'gauss_sigma_{_sigma}', img_out)
+        cv2.imwrite(f'image/exp1/filter/gauss_sigma_{_sigma}_uint8.tif', img_out)
 
     cv2.waitKey(0)
 
