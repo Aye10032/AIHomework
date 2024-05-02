@@ -1,10 +1,15 @@
+from dataclasses import dataclass
+
 import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
 from scipy.special import j1
 
-LAMBDA = 0.48
-NA = 0.5
+
+@dataclass
+class Variable:
+    LAMBDA: float
+    NA: float
 
 
 def psf(r: np.ndarray, light_wave_l: float, na: float) -> np.ndarray:
@@ -26,22 +31,26 @@ def psf(r: np.ndarray, light_wave_l: float, na: float) -> np.ndarray:
     return z
 
 
-def gauss(_x: np.ndarray, sigma: float) -> np.ndarray:
-    return np.exp(-_x ** 2 / (2 * sigma ** 2))
-
-
 def main() -> None:
+    configs = [
+        Variable(0.48, 0.5),
+        Variable(0.52, 0.5),
+        Variable(0.68, 0.5),
+        Variable(0.52, 1.0),
+        Variable(0.52, 1.4),
+        Variable(0.52, 1.5),
+    ]
+
     x = np.linspace(-1.8, 1.8, 200)
-    y = psf(x, LAMBDA, NA)
-    r0 = 0.61 * LAMBDA / NA
-    y2 = gauss(x, r0 / 3)
 
     sns.set_style('whitegrid')
-    fig, ax = plt.subplots()
-    sns.lineplot(x=x, y=y2, ax=ax, color='orange')
-    sns.lineplot(x=x, y=y, ax=ax, color='b')
-    ax.axvline(x=r0, color='red', linestyle='--')
+    fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(8*2, 4 * 3))
+    for index, config in enumerate(configs):
+        ax = axes.flat[index]
+        sns.lineplot(x=x, y=psf(x, config.LAMBDA, config.NA), ax=ax)
+        ax.set_xlabel(fr'$\lambda$: {config.LAMBDA}, NA: {config.NA}')
 
+    plt.tight_layout()
     plt.show()
 
 
