@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+import os
+from dataclasses import dataclass, field
 
 import numpy as np
 import seaborn as sns
@@ -11,9 +12,10 @@ class Variable:
     LAMBDA: float
     NA: float
     FIT_SIGMA: float = 0
+    RO: float = field(init=False)
 
-    def get_sigma(self, ndigits: int = 2) -> float:
-        return round((0.61 * self.LAMBDA / self.NA) / 3, ndigits)
+    def __post_init__(self):
+        self.RO = (0.61 * self.LAMBDA / self.NA) / 3
 
 
 def psf(r: np.ndarray, light_wave_l: float, na: float) -> np.ndarray:
@@ -32,6 +34,8 @@ def gauss(_x: np.ndarray, sigma: float) -> np.ndarray:
 
 
 def main() -> None:
+    os.makedirs('image/exp2', exist_ok=True)
+
     variables = [
         Variable(0.48, 0.5),
         Variable(0.52, 0.5),
@@ -43,7 +47,7 @@ def main() -> None:
 
     x = np.linspace(-1.8, 1.8, 200)
     sns.set_style('whitegrid')
-    fig, axes = plt.subplots(nrows=len(variables), ncols=1, figsize=(8, 4 * len(variables)))
+    fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(8 * 2, 4 * 3))
     for index, vari in enumerate(variables):
         # 拟合方差
         min_loss = np.inf
@@ -58,18 +62,19 @@ def main() -> None:
                 vari.FIT_SIGMA = _sigma
 
         # 绘图
-        ax = axes[index]
+        ax = axes.flat[index]
         sns.lineplot(x=x, y=y1, ax=ax, label='PSF')
         sns.lineplot(x=x, y=gauss(x, vari.FIT_SIGMA), ax=ax, label='gauss')
-        ax.axvline(x=vari.get_sigma() * 3, color='r', linestyle='--', label=r'$\frac{0.61\lambda}{NA}$')
+        ax.axvline(x=vari.RO * 3, color='r', linestyle='--', label=r'$\frac{0.61\lambda}{NA}$')
         ax.axvline(x=vari.FIT_SIGMA * 3, color='g', linestyle='--', label=r'$3\sigma_{fit}$')
-        x_pos = max(vari.get_sigma(3) * 3, vari.FIT_SIGMA * 3) + 0.2
-        ax.annotate(f'{round(vari.get_sigma(3) * 3, 3)}', xy=(x_pos, 0.8), fontsize=12, color='r')
+        x_pos = max(vari.RO * 3, vari.FIT_SIGMA * 3) + 0.3
+        ax.annotate(f'{round(vari.RO * 3, 3)}', xy=(x_pos, 0.8), fontsize=12, color='r')
         ax.annotate(f'{round(vari.FIT_SIGMA * 3, 3)}', xy=(x_pos, 0.7), fontsize=12, color='g')
-        ax.set_title(fr'$\lambda$: {vari.LAMBDA}, NA: {vari.NA}')
-        ax.legend()
+        ax.set_xlabel(fr'$\lambda$: {vari.LAMBDA}, NA: {vari.NA}')
+        ax.legend(loc='upper left')
 
     plt.tight_layout()
+    plt.savefig('image/exp2/fit.png')
     plt.show()
 
 

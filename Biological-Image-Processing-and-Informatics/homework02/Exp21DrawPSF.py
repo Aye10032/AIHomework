@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 
 import numpy as np
@@ -32,6 +33,8 @@ def psf(r: np.ndarray, light_wave_l: float, na: float) -> np.ndarray:
 
 
 def main() -> None:
+    os.makedirs('image/exp2', exist_ok=True)
+
     configs = [
         Variable(0.48, 0.5),
         Variable(0.52, 0.5),
@@ -51,6 +54,7 @@ def main() -> None:
         ax.set_xlabel(fr'$\lambda$: {config.LAMBDA}, NA: {config.NA}')
 
     plt.tight_layout()
+    plt.savefig('image/exp2/psf.png')
     plt.show()
 
 
