@@ -5,6 +5,7 @@ import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
 from scipy.special import j1
+from loguru import logger
 
 
 @dataclass
@@ -19,6 +20,14 @@ class Variable:
 
 
 def psf(r: np.ndarray, light_wave_l: float, na: float) -> np.ndarray:
+    """
+    计算点扩散函数（PSF）
+
+    :param r: 距离中心的距离。
+    :param light_wave_l: 波长
+    :param na: 数值孔径
+    :return: 对应输入距离r的光强
+    """
     k = 2 * np.pi / light_wave_l
     rho = k * na * r
 
@@ -30,7 +39,27 @@ def psf(r: np.ndarray, light_wave_l: float, na: float) -> np.ndarray:
 
 
 def gauss(_x: np.ndarray, sigma: float) -> np.ndarray:
+    """
+    计算高斯函数的值
+
+    :param _x: 输入numpy数组
+    :param sigma: 高斯函数的标准差
+    :return: 一个numpy数组，包含输入数组 _x 中每个元素对应的高斯函数值
+    """
+
     return np.exp(-_x ** 2 / (2 * sigma ** 2))
+
+
+def mse_loss(y: np.ndarray, fit: np.ndarray) -> float:
+    """
+    计算均方误差（MSE）损失函数
+
+    :param y: 实际值数组，一个numpy数组
+    :param fit: 拟合值数组，一个numpy数组
+    :return: 均方误差
+    """
+
+    return np.sum((y - fit) ** 2) / y.shape[0]
 
 
 def main() -> None:
@@ -49,17 +78,18 @@ def main() -> None:
     sns.set_style('whitegrid')
     fig, axes = plt.subplots(nrows=3, ncols=2, figsize=(8 * 2, 4 * 3))
     for index, vari in enumerate(variables):
-        # 拟合方差
         min_loss = np.inf
         y1 = psf(x, vari.LAMBDA, vari.NA)
         for si in range(1, 600):
             _sigma = 0.005 * si
             y2 = gauss(x, _sigma)
-            loss = abs(np.sum(y1 - y2))
+            loss = mse_loss(y1, y2)
 
             if loss < min_loss:
                 min_loss = loss
                 vari.FIT_SIGMA = _sigma
+
+        logger.info(f'sigma={vari.FIT_SIGMA} ,loss: {min_loss:.3e}')
 
         # 绘图
         ax = axes.flat[index]
