@@ -58,7 +58,10 @@ def gauss_filter(input_mat: np.ndarray, sigma: float) -> np.ndarray:
 
 
 @timer
-def local_min_max(input_mat: np.ndarray, kernel_size: int = 3) -> Tuple[np.ndarray, np.ndarray]:
+def local_min_max(
+        input_mat: np.ndarray,
+        kernel_size: int = 3
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     寻找输入矩阵中的局部最小值和局部最大值
 
@@ -135,10 +138,14 @@ def draw_triangle(
     :param min_positions: 局部极小值点
     :return:
     """
+    os.makedirs('image/BIP_Project02_image_sequence/triangle', exist_ok=True)
+
     img_big = zoom_in(input_mat, 5).astype('uint8')
     img_big = cv2.cvtColor(img_big, cv2.COLOR_GRAY2RGB)
+
     max_positions = max_positions * 5 + 2
     min_positions = min_positions * 5 + 2
+
     for index, points in enumerate(min_positions):
         points: np.ndarray
         pos_list = np.int32(points.reshape((-1, 1, 2)))
@@ -146,7 +153,7 @@ def draw_triangle(
 
         cv2.circle(img_big, max_positions[index], 2, (0, 0, 255), -1)
 
-    cv2.imwrite('tran.png', img_big)
+    cv2.imwrite('image/BIP_Project02_image_sequence/triangle/triangle.png', img_big)
 
 
 def zoom_in(input_mat: np.ndarray, factor: int) -> np.ndarray:
@@ -184,9 +191,15 @@ def main() -> None:
         local_maxima, local_minima = local_min_max(src_gauss)
         cv2.imwrite(f'image/BIP_Project02_image_sequence/minmax/{file_name}_max.png', local_maxima.astype('uint8'))
         cv2.imwrite(f'image/BIP_Project02_image_sequence/minmax/{file_name}_min.png', local_minima.astype('uint8'))
+        logger.info(f'find {local_maxima.shape[0]} local maxima, {local_minima.shape[0]} local minima')
+        if i == 1:
+            logger.info('compare')
+            local_maxima_1, local_minima_1 = local_min_max(src_gauss, 5)
+            cv2.imwrite(f'image/BIP_Project02_image_sequence/minmax/{file_name}_max_5X5.png', local_maxima_1.astype('uint8'))
+            cv2.imwrite(f'image/BIP_Project02_image_sequence/minmax/{file_name}_min_5X5.png', local_minima_1.astype('uint8'))
+            logger.info(f'find {local_maxima_1.shape[0]} local maxima, {local_minima_1.shape[0]} local minima')
 
         tra_list: tuple[np.ndarray, np.ndarray] = establish_connections(local_maxima, local_minima)
-        logger.info(f'find {tra_list[0].shape[0]} local maxima')
         if i == 1:
             draw_triangle(src_gauss, tra_list[0], tra_list[1])
 
