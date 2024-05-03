@@ -188,6 +188,7 @@ def main() -> None:
 
         src_gauss = gauss_filter(src, variable.SIGMA)
         cv2.imwrite(f'image/BIP_Project02_image_sequence/gauss/{file_name}.png', src_gauss.astype('uint8'))
+        cv2.imwrite(f'image/BIP_Project02_image_sequence/gauss/{file_name}.tif', src_gauss)
 
         local_maxima, local_minima = local_min_max(src_gauss)
         cv2.imwrite(f'image/BIP_Project02_image_sequence/minmax/{file_name}_max.png', local_maxima.astype('uint8'))
