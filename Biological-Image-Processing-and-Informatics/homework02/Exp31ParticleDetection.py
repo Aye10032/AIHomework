@@ -174,7 +174,6 @@ def main() -> None:
     os.makedirs('image/BIP_Project02_image_sequence/gauss', exist_ok=True)
     os.makedirs('image/BIP_Project02_image_sequence/minmax', exist_ok=True)
     os.makedirs('image/BIP_Project02_image_sequence/points', exist_ok=True)
-    os.makedirs('image/BIP_Project02_image_sequence/sub_pix', exist_ok=True)
 
     init_src = cv2.imread('image/BIP_Project02_image_sequence/001_a5_002_t001.tif', cv2.IMREAD_UNCHANGED)
     mean, std = get_background_noise(init_src)
@@ -212,6 +211,7 @@ def main() -> None:
         for point in true_max:
             cv2.circle(point_mat, point, 3, (0, 255, 0), -1)
         cv2.imwrite(f'image/BIP_Project02_image_sequence/points/{file_name}.png', point_mat.astype('uint8'))
+        np.save(f'image/BIP_Project02_image_sequence/points/{file_name}.npy', true_max)
 
 
 if __name__ == '__main__':
