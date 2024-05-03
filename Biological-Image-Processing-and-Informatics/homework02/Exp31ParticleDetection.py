@@ -174,6 +174,7 @@ def main() -> None:
     os.makedirs('image/BIP_Project02_image_sequence/gauss', exist_ok=True)
     os.makedirs('image/BIP_Project02_image_sequence/minmax', exist_ok=True)
     os.makedirs('image/BIP_Project02_image_sequence/points', exist_ok=True)
+    os.makedirs('image/BIP_Project02_image_sequence/sub_pix', exist_ok=True)
 
     init_src = cv2.imread('image/BIP_Project02_image_sequence/001_a5_002_t001.tif', cv2.IMREAD_UNCHANGED)
     mean, std = get_background_noise(init_src)
@@ -183,6 +184,7 @@ def main() -> None:
 
     for i in range(1, 6):
         file_name = f'001_a5_002_t00{i}'
+        logger.info(f'loading {file_name}.tif...')
         src = cv2.imread(f'image/BIP_Project02_image_sequence/{file_name}.tif', cv2.IMREAD_UNCHANGED)
 
         src_gauss = gauss_filter(src, variable.SIGMA)
