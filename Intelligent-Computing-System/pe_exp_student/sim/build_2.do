@@ -1,5 +1,5 @@
 #设置
-set sim_home D:/pe_exp/sim
+set sim_home D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/sim
 
 #??work?
 vlib ${sim_home}/work

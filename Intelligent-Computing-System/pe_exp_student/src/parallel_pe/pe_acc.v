@@ -15,9 +15,9 @@ begin:int16_add_tree
   for(j=0; j<(32/(2**i)); j=j+1)
   begin:int16_adder
     if(i==0) begin
-      assign int16_result[0][j] = ___________________________________;
+      assign int16_result[0][j] = mult_result[j*32+31-:32];
     end else begin
-      assign int16_result[i][j] = ___________________________________;
+      assign int16_result[i][j] = int16_result[i-1][j*2] + int16_result[i-1][j*2+1];
     end
   end
 end
