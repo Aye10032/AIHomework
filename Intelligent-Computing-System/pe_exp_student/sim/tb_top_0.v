@@ -118,15 +118,15 @@ always@(posedge clk or negedge rst_n) begin
   end
 end
 
-//always@(posedge clk or negedge rst_n) begin
-//  if(!rst_n) begin
-//    compare_pass <= 1'b1;
-//  end else if(pe_vld_o && (pe_result != reset[result_addr])) begin
-//    $display("FAIL: num.%d result not correct!!!", result_addr);;
-//    compare_pass <= 1'b0;
-//  end else if(pe_vld_o && (pe_result == reset[result_addr])) begin
-//    $display("INFO: num.%d result is correct.", result_addr);;
-//  end
-//end
+always@(posedge clk or negedge rst_n) begin
+  if(!rst_n) begin
+    compare_pass <= 1'b1;
+  end else if(pe_vld_o && (pe_result != result[result_addr])) begin
+    $display("FAIL: num.%d result not correct!!!", result_addr);
+    compare_pass <= 1'b0;
+  end else if(pe_vld_o && (pe_result == result[result_addr])) begin
+    $display("INFO: num.%d result is correct.", result_addr);
+  end
+end
 
 endmodule
