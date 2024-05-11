@@ -35,7 +35,7 @@ end
 always@(posedge clk or negedge rst_n)
 if(!rst_n) begin
   vld_o <= 1'b0;
-end else if(ctlend else if(ctl[1] && vld_i) begin
+end else if(ctl[1] & vld_i) begin
   vld_o <= 1'b1;
 end else begin
   vld_o <= 1'b0;
