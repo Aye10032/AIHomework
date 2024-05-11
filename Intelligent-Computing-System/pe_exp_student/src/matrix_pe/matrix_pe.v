@@ -18,62 +18,62 @@ reg inst_vld;
 reg [7:0] inst;/*inst存放输入控制信号ib_ctl_uop的值*/
 always@(posedge clk or negedge rst_n) begin
 /* TODO: inst_vld & inst */
-  if(!rst_n) begin
-    inst_vld <= 1'b0;
-    inst <= 8'h0;
-  end else if(ib_ctl_uop_valid && ib_ctl_uop_ready) begin
-    inst_vld <= 1'b1;
-    inst <= ib_ctl_uop;
-  end else if((!ib_ctl_uop_valid) && ib_ctl_uop_ready) begin
-    inst_vld <= 1'b0;
-  end
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
 end
 wire pe_vld_i = inst_vld && nram_mpe_neuron_valid && wram_mpe_weight_valid;
 reg [7:0] iter;
 always@(posedge clk or negedge rst_n) begin
   /* TODO: iter */
-  if(!rst_n) begin
-    iter <= 8'b0;
-  end else if(ib_ctl_uop_valid && ib_ctl_uop_ready) begin
-    iter <= 8'b0;
-  end else if(pe_vld_i) begin
-    iter <= iter + 1'b1;
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
   end
 end
 
 always@(posedge clk or negedge rst_n) begin
   /* TODO: ib_ctl_uop_ready */
-  if(!rst_n) begin
-    ib_ctl_uop_ready <= 1'b1;
-  end else if((iter == (inst - 1'b1)) && pe_vld_i) begin
-    ib_ctl_uop_ready <= 1'b1;
-  end else if(ib_ctl_uop_valid) begin
-    ib_ctl_uop_ready <= 1'b0;
-  end
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
 end
 
 wire [511:0] pe_neuron = nram_mpe_neuron;
 wire [511:0] pe_weight = wram_mpe_weight;
 wire [1:0] pe_ctl;
-assign pe_ctl[0] = (iter[7:0] == 8'h0);  /* TODO */
-assign pe_ctl[1] = (iter[7:0] == (inst[7:0] - 1'b1));  /* TODO */
+assign pe_ctl[0] = _________________________________;  /* TODO */
+assign pe_ctl[1] = _________________________________;  /* TODO */
 
 wire [31:0] pe_result;
 wire pe_vld_o;
 parallel_pe u_parallel_pe (
 /* TODO */
-  .clk                  (clk      ),
-  .rst_n                (rst_n    ),
-  .neuron               (pe_neuron),
-  .weight               (pe_weight),
-  .ctl                  (pe_ctl   ),
-  .vld_i                (pe_vld_i ),
-  .result               (pe_result),
-  .vld_o                (pe_vld_o )
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
+  ___________________________________________________
 );
 
-assign nram_mpe_neuron_ready = inst_vld && wram_mpe_weight_valid;  /* TODO */
-assign wram_mpe_weight_ready = inst_vld && nram_mpe_neuron_valid;  /* TODO */
+assign nram_mpe_neuron_ready = _________________________________;  /* TODO */
+assign wram_mpe_weight_ready = _________________________________;  /* TODO */
 
 assign result = pe_result;
 assign vld_o = pe_vld_o;

@@ -26,51 +26,42 @@ R1
 n@_opt1
 R2
 R0
-T_opt2
-!s110 1715422557
-V2N=82L<HRl]TQC_F;@b7Z2
-04 9 4 work serial_pe fast 0
-=1-08bfb867ff4c-663f4559-bb-3fa50
-o-quiet -auto_acc_if_foreign -work work
-n@_opt2
-R2
-R0
 vfifo
+Z3 !s110 1588646764
 !i10b 1
-Z3 VDg1SIo80bB@j0V0VzS_@n1
+!s100 6M>Ci;m^X;`X70zaoM0?l0
+ImZRV^@5HcG<3k?UFf=<Aj1
+Z4 VDg1SIo80bB@j0V0VzS_@n1
+R0
+w1581658114
+8D:/pe_exp/src/fifo.v
+FD:/pe_exp/src/fifo.v
+L0 1
+Z5 OP;L;10.4a;61
 r1
 !s85 0
 31
-Z4 OL;L;10.4;61
-!s100 6M>Ci;m^X;`X70zaoM0?l0
-ImZRV^@5HcG<3k?UFf=<Aj1
-R0
-w1581658114
-8D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/fifo.v
-FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/fifo.v
-L0 1
-Z5 OP;L;10.4a;61
 Z6 !s108 1588646764.000000
-Z7 !s107 D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/mcpu.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/mcpu_cvt.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/int45_to_int16.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/int45_to_fp_stg2.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/int45_to_fp_stg1.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/mcpu_acc.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/mcpu_mult.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/fifo.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/arith_constant.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/sim/tb_top.v|
-Z8 !s90 -reportprogress|300|-f|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/sim/compile.f|
+Z7 !s107 D:/pe_exp/src/mcpu.v|D:/pe_exp/src/mcpu_cvt.v|D:/pe_exp/src/int45_to_int16.v|D:/pe_exp/src/int45_to_fp_stg2.v|D:/pe_exp/src/int45_to_fp_stg1.v|D:/pe_exp/src/mcpu_acc.v|D:/pe_exp/src/mcpu_mult.v|D:/pe_exp/src/fifo.v|D:/pe_exp/src/arith_constant.v|D:/pe_exp/sim/tb_top.v|
+Z8 !s90 -reportprogress|300|-f|D:/pe_exp/sim/compile.f|
 !s101 -O0
 !i113 1
 Z9 o-L mtiAvm -L mtiRnm -L mtiOvm -L mtiUvm -L mtiUPF -L infact -O0
 vint45_to_fp_stg1
-!i10b 1
 R3
+!i10b 1
+!s100 JI@C3JaOY83z8[[mRM`SF1
+I2a?DzNB;Dg<Q=6AejTH8h1
+R4
+R0
+w1580710076
+8D:/pe_exp/src/int45_to_fp_stg1.v
+FD:/pe_exp/src/int45_to_fp_stg1.v
+L0 1
+R5
 r1
 !s85 0
 31
-R4
-!s100 JI@C3JaOY83z8[[mRM`SF1
-I2a?DzNB;Dg<Q=6AejTH8h1
-R0
-w1580710076
-8D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/int45_to_fp_stg1.v
-FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/int45_to_fp_stg1.v
-L0 1
-R5
 R6
 R7
 R8
@@ -78,20 +69,20 @@ R8
 !i113 1
 R9
 vint45_to_fp_stg2
-!i10b 1
 R3
+!i10b 1
+!s100 ;@DB;Pei;gA88K:Q615SB1
+IMhboFYNXFlbDGAi1IQ2UE3
+R4
+R0
+w1581498330
+8D:/pe_exp/src/int45_to_fp_stg2.v
+FD:/pe_exp/src/int45_to_fp_stg2.v
+L0 1
+R5
 r1
 !s85 0
 31
-R4
-!s100 ;@DB;Pei;gA88K:Q615SB1
-IMhboFYNXFlbDGAi1IQ2UE3
-R0
-w1581498330
-8D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/int45_to_fp_stg2.v
-FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/int45_to_fp_stg2.v
-L0 1
-R5
 R6
 R7
 R8
@@ -99,20 +90,20 @@ R8
 !i113 1
 R9
 vint45_to_int16
-!i10b 1
 R3
+!i10b 1
+!s100 Xe4Gmj26U<7DT120]S1m72
+I]NZ6ADLN<Ld4EImhK9Lb00
+R4
+R0
+w1580711018
+8D:/pe_exp/src/int45_to_int16.v
+FD:/pe_exp/src/int45_to_int16.v
+L0 24
+R5
 r1
 !s85 0
 31
-R4
-!s100 Xe4Gmj26U<7DT120]S1m72
-I]NZ6ADLN<Ld4EImhK9Lb00
-R0
-w1580711018
-8D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/int45_to_int16.v
-FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/int45_to_int16.v
-L0 24
-R5
 R6
 R7
 R8
@@ -120,40 +111,39 @@ R8
 !i113 1
 R9
 vmatrix_pe
-Z10 !s110 1715424387
-!i10b 1
-!s100 i@[j9PCadbefzn0VXEJEg3
-I=C>J@IAGa0aE6Z7RMJQa23
-R3
-Z11 dD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student
-w1715423943
-8D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/matrix_pe.v
-FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/matrix_pe.v
-L0 1
 R4
 r1
 !s85 0
 31
-Z12 !s108 1715424387.090000
-Z13 !s107 D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/pe_acc.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/pe_mult.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/parallel_pe.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/matrix_pe.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/sim/tb_top_2.v|
-Z14 !s90 -reportprogress|300|-f|sim/compile_2.f|
+!i10b 1
+!s100 X[MNl86aFoN>SoBlWNT<f2
+I;9[:fmNDS=o4ChLHgPIdi3
+Z10 dD:/pe_exp
+w1622285168
+8D:/pe_exp/src/matrix_pe/matrix_pe.v
+FD:/pe_exp/src/matrix_pe/matrix_pe.v
+L0 1
+Z11 OL;L;10.4;61
+Z12 !s108 1701358427.385000
+Z13 !s107 D:/pe_exp/src/matrix_pe/pe_acc.v|D:/pe_exp/src/matrix_pe/pe_mult.v|D:/pe_exp/src/matrix_pe/parallel_pe.v|D:/pe_exp/src/matrix_pe/matrix_pe.v|D:/pe_exp/sim/tb_top_2.v|
+Z14 !s90 -reportprogress|300|-f|D:/pe_exp/sim/compile_2.f|
 !i113 0
 Z15 o-L mtiAvm -L mtiRnm -L mtiOvm -L mtiUvm -L mtiUPF -L infact
 vmcpu
-!i10b 1
 R3
+!i10b 1
+!s100 ZaR_j30F31z_jEjOAmI7B1
+IfnoA0Bm>LMgDV3WjX]7Bf1
+R4
+R0
+w1581658898
+8D:/pe_exp/src/mcpu.v
+FD:/pe_exp/src/mcpu.v
+L0 1
+R5
 r1
 !s85 0
 31
-R4
-!s100 ZaR_j30F31z_jEjOAmI7B1
-IfnoA0Bm>LMgDV3WjX]7Bf1
-R0
-w1581658898
-8D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/mcpu.v
-FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/mcpu.v
-L0 1
-R5
 R6
 R7
 R8
@@ -161,20 +151,20 @@ R8
 !i113 1
 R9
 vmcpu_acc
-!i10b 1
 R3
+!i10b 1
+!s100 =9;Ll;MO35F:o=OI4KG]?0
+IdZiEE;GK]?o[<8JMN7>f82
+R4
+R0
+w1588646592
+8D:/pe_exp/src/mcpu_acc.v
+FD:/pe_exp/src/mcpu_acc.v
+L0 1
+R5
 r1
 !s85 0
 31
-R4
-!s100 =9;Ll;MO35F:o=OI4KG]?0
-IdZiEE;GK]?o[<8JMN7>f82
-R0
-w1588646592
-8D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/mcpu_acc.v
-FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/mcpu_acc.v
-L0 1
-R5
 R6
 R7
 R8
@@ -182,20 +172,20 @@ R8
 !i113 1
 R9
 vmcpu_cvt
-!i10b 1
 R3
+!i10b 1
+!s100 98gEdEjcF@XjB1Iig_7ld0
+IIH9oII7:ORAaoIBkeSULe0
+R4
+R0
+w1588646748
+8D:/pe_exp/src/mcpu_cvt.v
+FD:/pe_exp/src/mcpu_cvt.v
+L0 1
+R5
 r1
 !s85 0
 31
-R4
-!s100 98gEdEjcF@XjB1Iig_7ld0
-IIH9oII7:ORAaoIBkeSULe0
-R0
-w1588646748
-8D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/mcpu_cvt.v
-FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/mcpu_cvt.v
-L0 1
-R5
 R6
 R7
 R8
@@ -203,20 +193,20 @@ R8
 !i113 1
 R9
 vmcpu_mult
-!i10b 1
 R3
+!i10b 1
+!s100 Qa9?A0iibKJ>oG:AO6l[22
+I[=Odl[zdS55JMhO?:R`]83
+R4
+R0
+w1581499160
+8D:/pe_exp/src/mcpu_mult.v
+FD:/pe_exp/src/mcpu_mult.v
+L0 1
+R5
 r1
 !s85 0
 31
-R4
-!s100 Qa9?A0iibKJ>oG:AO6l[22
-I[=Odl[zdS55JMhO?:R`]83
-R0
-w1581499160
-8D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/mcpu_mult.v
-FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/mcpu_mult.v
-L0 1
-R5
 R6
 R7
 R8
@@ -224,157 +214,153 @@ R8
 !i113 1
 R9
 vparallel_pe
-R10
-!i10b 1
-!s100 KWIndW7Vh5a6l:Md?^XLf1
-INQU@7lGa;eS<j67Nz:Uz42
-R3
-R11
-Z16 w1715424206
-8D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/parallel_pe.v
-FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/parallel_pe.v
-L0 1
 R4
 r1
 !s85 0
 31
+!i10b 1
+!s100 ea`G?o3QEUV<3LjVd82]W1
+In:<RlC2QI26YJ1g3SQj`10
+R10
+w1622284404
+8D:/pe_exp/src/matrix_pe/parallel_pe.v
+FD:/pe_exp/src/matrix_pe/parallel_pe.v
+L0 1
+R11
 R12
 R13
 R14
 !i113 0
 R15
 vpe_acc
-R10
-!i10b 1
-!s100 f5f;QP_iNYA]5b=]M5I<60
-I;aYe566h:_j`]U>bDbfoB0
-R3
-R11
-R16
-8D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/pe_acc.v
-FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/pe_acc.v
-L0 1
 R4
 r1
 !s85 0
 31
+!i10b 1
+!s100 fOf987QGQ]lOnd:Em]:[a3
+IJJPIo^MdXa>;Y<klKMP4D2
+R10
+w1622283538
+8D:/pe_exp/src/matrix_pe/pe_acc.v
+FD:/pe_exp/src/matrix_pe/pe_acc.v
+L0 1
+R11
 R12
 R13
 R14
 !i113 0
 R15
 vpe_mult
-R10
-!i10b 1
-!s100 Po3S@0>0Fm5JQ^PgLX:Y:2
-I1Cam0j?V4f8g2T3:F:C5>0
-R3
-R11
-R16
-8D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/pe_mult.v
-FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/pe_mult.v
-L0 1
 R4
 r1
 !s85 0
 31
+!i10b 1
+!s100 NOJCYfkI<Ta4SnHenNlHh1
+I13Z@M_YMT7QgPX569ldQS3
+R10
+w1604828980
+8D:/pe_exp/src/matrix_pe/pe_mult.v
+FD:/pe_exp/src/matrix_pe/pe_mult.v
+L0 1
+R11
 R12
 R13
 R14
 !i113 0
 R15
 vserial_pe
-R3
+R4
 r1
 !s85 0
 31
 !i10b 1
-!s100 nDUh?]d09[=7kL0KTm2;J0
-IA[T1l5eXUX]2Em@lWk5`R2
-R11
-w1715344537
-8D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/serial_pe/serial_pe.v
-FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/serial_pe/serial_pe.v
+!s100 :5?RnG2BY0f2PG5AY2L>`1
+I3nQjz?cz_7H>G[B5WD[<D3
+R10
+w1622282240
+8D:/pe_exp/src/serial_pe/serial_pe.v
+FD:/pe_exp/src/serial_pe/serial_pe.v
 L0 1
-R4
-Z17 !s108 1715424378.630000
-Z18 !s107 D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/serial_pe/serial_pe.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/sim/tb_top_0.v|
-Z19 !s90 -reportprogress|300|-f|sim/compile_0.f|
+R11
+Z16 !s108 1701357973.224000
+Z17 !s107 D:/pe_exp/src/serial_pe/serial_pe.v|D:/pe_exp/sim/tb_top_0.v|
+Z18 !s90 -reportprogress|300|-f|D:/pe_exp/sim/compile_0.f|
 !i113 0
 R15
 vtb_top
+!s110 1701310175
 !i10b 1
-R3
+!s100 8lfjB2IO=[_XlS9=Oz9@53
+I<B6iQgK:jD;dF_dObmA7d3
+R4
+dC:/modeltech64_10.4/examples
+w1622285414
+Z19 8D:/pe_exp/sim/tb_top_2.v
+Z20 FD:/pe_exp/sim/tb_top_2.v
+L0 3
+R11
 r1
 !s85 0
 31
-!s100 8lfjB2IO=[_XlS9=Oz9@53
-I<B6iQgK:jD;dF_dObmA7d3
-dC:/modeltech64_10.4/examples
-w1622285414
-Z20 8D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/sim/tb_top_2.v
-Z21 FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/sim/tb_top_2.v
-L0 3
-R4
 !s108 1701310175.791000
-!s107 D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/pe_acc.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/pe_mult.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/parallel_pe.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/sim/tb_top_2.v|
-!s90 -reportprogress|300|-f|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/sim/compile_2.f|
+!s107 D:/pe_exp/src/matrix_pe/pe_acc.v|D:/pe_exp/src/matrix_pe/pe_mult.v|D:/pe_exp/src/matrix_pe/parallel_pe.v|D:/pe_exp/sim/tb_top_2.v|
+R14
 !i113 0
 R15
 vtb_top_0
-R3
+R4
 r1
 !s85 0
 31
 !i10b 1
-!s100 2Qh?MjJaj2XWU@_[b1[@o3
-INF]KzTzemd05EenbURRak1
-R11
-Z22 w1715422745
-8D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/sim/tb_top_0.v
-FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/sim/tb_top_0.v
+!s100 <FTRWMecm=CnNLKC4^Bon0
+Ig9U_chd83=dcY5]RSdYHm2
+R10
+w1701356871
+8D:/pe_exp/sim/tb_top_0.v
+FD:/pe_exp/sim/tb_top_0.v
 L0 3
-R4
+R11
+R16
 R17
 R18
-R19
 !i113 0
 R15
 vtb_top_1
-!s110 1715424384
-!i10b 1
-!s100 l70nnDFM]OH`D9:`;VVz83
-I@3XU=n1K?eDleQaFfINLm0
-R3
-R11
-R22
-8D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/sim/tb_top_1.v
-FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/sim/tb_top_1.v
-L0 3
 R4
 r1
 !s85 0
 31
-!s108 1715424384.734000
-!s107 D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/parallel_pe/pe_acc.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/parallel_pe/pe_mult.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/parallel_pe/parallel_pe.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/sim/tb_top_1.v|
-!s90 -reportprogress|300|-f|sim/compile_1.f|
+!i10b 1
+!s100 >Y95cgcTBa8NF`D8FC3SD0
+I]XfTf4;oLY5AWNY=<nd]92
+R10
+w1701357692
+8D:/pe_exp/sim/tb_top_1.v
+FD:/pe_exp/sim/tb_top_1.v
+L0 3
+R11
+!s108 1701358014.703000
+!s107 D:/pe_exp/src/parallel_pe/pe_acc.v|D:/pe_exp/src/parallel_pe/pe_mult.v|D:/pe_exp/src/parallel_pe/parallel_pe.v|D:/pe_exp/sim/tb_top_1.v|
+!s90 -reportprogress|300|-f|D:/pe_exp/sim/compile_1.f|
 !i113 0
 R15
 vtb_top_2
-R10
-!i10b 1
-!s100 o7fRih11e8k=blHZMaQ9e3
-IWl=beoz4U;o4KgTCfFkIz1
-R3
-R11
-R22
-R20
-R21
-L0 3
 R4
 r1
 !s85 0
 31
+!i10b 1
+!s100 m4E3kn92R6XdS18fQM4Ck2
+IALN;o=Tc63d:`zW08SP`H0
+R10
+w1701358381
+R19
+R20
+L0 3
+R11
 R12
 R13
 R14
