@@ -7,7 +7,6 @@
 # Description: 
 ###################################################################
 import random as rd
-import math as mh
 from typing import TextIO
 
 
@@ -36,31 +35,31 @@ def num2str(num: int, mode: int, width: int):
     return text
 
 
-def verctor_gen(pfr: TextIO, nfr: TextIO, sfr: TextIO, iter: int):
+def verctor_gen(pfr_io: TextIO, nfr_io: TextIO, sfr_io: TextIO, iter_num: int):
     """
     生成向量并进行特定计算，然后将计算结果写入文件。
 
-    :param pfr: 写入部分和结果的文件对象
-    :param nfr: 写入神经元结果的文件对象
-    :param sfr: 写入同步结果的文件对象
-    :param iter: 迭代次数
+    :param pfr_io: 写入部分和结果的文件对象
+    :param nfr_io: 写入神经元结果的文件对象
+    :param sfr_io: 写入同步结果的文件对象
+    :param iter_num: 迭代次数
     :return: 无返回值
     """
 
     line_iter = 32  # 每行迭代次数
-    base = 2 ** 16  # 基数
+    base = 2 ** 12  # 基数
     width = 4  # 数字宽度
 
     partsum = 0  # 部分和初始化
     # 主迭代过程
-    for i in range(iter):
+    for i in range(iter_num):
         neu_str = ""
         syn_str = ""
 
         # 生成神经元和同步字符串
         for k in range(line_iter):
-            neu = rd.randint(0, 2 ** 16) % base
-            syn = rd.randint(0, 2 ** 16) % base
+            neu = rd.randint(0, 2 ** 12) % base
+            syn = rd.randint(0, 2 ** 12) % base
             neu_str = neu_str + num2str(neu, 1, width)
             syn_str = syn_str + num2str(syn, 1, width)
 
@@ -72,8 +71,8 @@ def verctor_gen(pfr: TextIO, nfr: TextIO, sfr: TextIO, iter: int):
             # 计算部分和
             partsum += neu * syn
         # 将神经元和同步结果写入文件
-        nfr.write(neu_str + "\n")
-        sfr.write(syn_str + "\n")
+        nfr_io.write(neu_str + "\n")
+        sfr_io.write(syn_str + "\n")
     # 打印部分和
     print("======================")
     print(partsum)
@@ -81,9 +80,9 @@ def verctor_gen(pfr: TextIO, nfr: TextIO, sfr: TextIO, iter: int):
 
     # 调整部分和确保非负，然后写入文件
     if partsum < 0:
-        partsum += 2 ** 45
+        partsum += 2 ** 32
 
-    pfr.write(num2str(partsum, 0, 45) + "\n")
+    pfr_io.write(num2str(partsum, 0, 32) + "\n")
 
 
 # 主程序入口
