@@ -1,48 +1,13 @@
 import torch
+from torch.utils.data import DataLoader
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
-from torchvision.transforms import (
-    Compose,
-    Resize,
-    RandomResizedCrop,
-    CenterCrop,
-    RandomHorizontalFlip,
-    ToTensor,
-    Normalize
-)
-from torchvision.datasets import CIFAR100
-from torch.utils.data import DataLoader
+
 import torch.nn as nn
 from torch import Tensor
 from tqdm import tqdm
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-
-trans_train = Compose([
-    RandomResizedCrop(224),
-    RandomHorizontalFlip(),
-    ToTensor(),
-    Normalize(
-        mean=[0.485, 0.456, 0.406],
-        std=[0.229, 0.224, 0.225]
-    )
-])
-
-trans_valid = Compose([
-    Resize(256),
-    CenterCrop(224),
-    ToTensor(),
-    Normalize(
-        mean=[0.485, 0.456, 0.406],
-        std=[0.229, 0.224, 0.225]
-    )
-])
-
-train_set = CIFAR100(root='./cifar100', train=True, download=True, transform=trans_train)
-test_set = CIFAR100(root='./cifar100', train=False, download=False, transform=trans_valid)
-
-train_loader = DataLoader(train_set, batch_size=256, shuffle=True, num_workers=2)
-test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=2)
 
 
 class Attention(nn.Module):
@@ -197,49 +162,11 @@ class ViT(nn.Module):
         return self.mlp_head(x)
 
 
-net = ViT(
-    image_size=256,
-    patch_size=32,
-    num_classes=100,
-    dim=512,
-    depth=6,
-    heads=8,
-    mlp_dim=512
-).to(DEVICE)
-optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
-criterion = nn.CrossEntropyLoss()
+class ChannelSelection(nn.Module):
+    def __init__(self, num_channels):
+        super(ChannelSelection, self).__init__()
+        self.indexes = nn.Parameter(torch.ones(num_channels))
 
-
-def train(epoch: int):
-    net.train()
-    train_loss = 0
-    correct = 0
-    total = 0
-
-    loop = tqdm(enumerate(train_loader), total=len(train_loader), desc=f'Epoch {epoch}')
-    for batch_idx, (inputs, targets) in loop:
-        inputs: Tensor
-        targets: Tensor
-
-        inputs, targets = inputs.to(DEVICE), targets.to(DEVICE)
-        optimizer.zero_grad()
-        outputs = net(inputs)
-        loss = criterion(outputs, targets)
-        loss.backward()
-        optimizer.step()
-
-        train_loss += loss.item()
-        _, predicted = outputs.max(1)
-        total += targets.size(0)
-        correct += predicted.eq(targets).sum().item()
-
-        loop.set_postfix(loss=train_loss / (batch_idx + 1), acc=f'{round(100. * correct / total, 3)} ({correct}/{total})')
-
-
-def main() -> None:
-    for i in range(50):
-        train(i)
-
-
-if __name__ == '__main__':
-    main()
+    def forward(self, input_tensor):
+        output = input_tensor.mul(self.indexes)
+        return output
