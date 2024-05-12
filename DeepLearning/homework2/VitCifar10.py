@@ -10,21 +10,13 @@ from torchvision.transforms import (
     ToTensor,
     Normalize
 )
-from torchvision.datasets import CIFAR10
+from torchvision.datasets import CIFAR100
 from torch.utils.data import DataLoader
-from torch.nn import (
-    Module,
-    LayerNorm,
-    Linear,
-    Softmax,
-    Dropout,
-    Sequential,
-    Identity,
-    Parameter,
-    ModuleList,
-    GELU
-)
+import torch.nn as nn
 from torch import Tensor
+from tqdm import tqdm
+
+DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 trans_train = Compose([
     RandomResizedCrop(224),
@@ -46,16 +38,16 @@ trans_valid = Compose([
     )
 ])
 
-train_set = CIFAR10(root='./cifar10', train=True, download=False, transform=trans_train)
-test_set = CIFAR10(root='./cifar10', train=False, download=False, transform=trans_valid)
+train_set = CIFAR100(root='./cifar100', train=True, download=True, transform=trans_train)
+test_set = CIFAR100(root='./cifar100', train=False, download=False, transform=trans_valid)
 
 train_loader = DataLoader(train_set, batch_size=256, shuffle=True, num_workers=2)
 test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=2)
 
 
-class Attention(Module):
+class Attention(nn.Module):
     def __init__(self, dim: int, heads: int = 8, dim_head: int = 64, dropout: float = 0.):
-        super().__init__()
+        super(Attention, self).__init__()
 
         inner_dim = dim_head * heads
         project_out = not (heads == 1 and dim_head == dim)
@@ -63,23 +55,23 @@ class Attention(Module):
         self.heads = heads
         self.scale = dim_head ** -0.5
 
-        self.norm = LayerNorm(dim)
+        self.norm = nn.LayerNorm(dim)
 
-        self.attend = Softmax(dim=-1)
-        self.dropout = Dropout(dropout)
+        self.attend = nn.Softmax(dim=-1)
+        self.dropout = nn.Dropout(dropout)
 
-        self.to_qkv = Linear(dim, inner_dim * 3, bias=False)
+        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias=False)
 
-        self.to_out = Sequential(
-            Linear(inner_dim, dim),
-            Dropout(dropout)
-        ) if project_out else Identity()
+        self.to_out = nn.Sequential(
+            nn.Linear(inner_dim, dim),
+            nn.Dropout(dropout)
+        ) if project_out else nn.Identity()
 
     def forward(self, x):
         x = self.norm(x)
 
-        qkv: list[Tensor] = self.to_qkv(x).chunk(3, dim=-1)
-        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d'), qkv)
+        qkv = self.to_qkv(x).chunk(3, dim=-1)
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=self.heads), qkv)
 
         dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
 
@@ -91,23 +83,24 @@ class Attention(Module):
         return self.to_out(out)
 
 
-class FeedForward(Module):
+class FeedForward(nn.Module):
     def __init__(self, dim: int, hidden_dim: int, dropout: float = 0.):
-        super().__init__()
+        super(FeedForward, self).__init__()
 
-        self.layer = Sequential(
-            LayerNorm(dim, hidden_dim),
-            GELU(),
-            Dropout(dropout),
-            Linear(hidden_dim, dim),
-            Dropout(dropout)
+        self.layer = nn.Sequential(
+            nn.LayerNorm(dim, hidden_dim),
+            nn.Linear(dim, hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, dim),
+            nn.Dropout(dropout)
         )
 
     def forward(self, x: Tensor):
         return self.layer(x)
 
 
-class Transformer(Module):
+class Transformer(nn.Module):
     def __init__(
             self,
             dim: int,
@@ -117,14 +110,14 @@ class Transformer(Module):
             mlp_dim: int,
             dropout: float = 0.
     ):
-        super().__init__()
+        super(Transformer, self).__init__()
 
-        self.norm = LayerNorm(dim)
-        self.layers = ModuleList([])
+        self.norm = nn.LayerNorm(dim)
+        self.layers = nn.ModuleList([])
 
         for _ in range(depth):
             self.layers.append(
-                ModuleList([
+                nn.ModuleList([
                     Attention(dim, heads=heads, dim_head=dim_head, dropout=dropout),
                     FeedForward(dim, mlp_dim, dropout=dropout)
                 ])
@@ -141,7 +134,7 @@ def pair(t):
     return t if isinstance(t, tuple) else (t, t)
 
 
-class ViT(Module):
+class ViT(nn.Module):
     def __init__(
             self, *,
             image_size: tuple[int, int] | int,
@@ -157,7 +150,7 @@ class ViT(Module):
             dropout: float = 0.,
             emb_dropout: float = 0
     ):
-        super().__init__()
+        super(ViT, self).__init__()
 
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
@@ -169,23 +162,23 @@ class ViT(Module):
 
         assert pool in {'cls', 'mean'}, 'err pool type'
 
-        self.to_patch_embedding = Sequential(
+        self.to_patch_embedding = nn.Sequential(
             Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=patch_height, p2=patch_width),
-            LayerNorm(patch_dim),
-            Linear(patch_dim, dim),
-            LayerNorm(dim)
+            nn.LayerNorm(patch_dim),
+            nn.Linear(patch_dim, dim),
+            nn.LayerNorm(dim)
         )
 
-        self.pos_embedding = Parameter(torch.randn(1, num_patches + 1, dim))
-        self.cls_token = Parameter(torch.randn(1, 1, dim))
-        self.dropout = Dropout(emb_dropout)
+        self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
+        self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
+        self.dropout = nn.Dropout(emb_dropout)
 
         self.transform = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
 
         self.pool = pool
-        self.to_latent = Identity()
+        self.to_latent = nn.Identity()
 
-        self.mlp_head = Linear(dim, num_classes)
+        self.mlp_head = nn.Linear(dim, num_classes)
 
     def forward(self, img: Tensor):
         x: Tensor = self.to_patch_embedding(img)
@@ -203,3 +196,50 @@ class ViT(Module):
         x = self.to_latent(x)
         return self.mlp_head(x)
 
+
+net = ViT(
+    image_size=256,
+    patch_size=32,
+    num_classes=100,
+    dim=512,
+    depth=6,
+    heads=8,
+    mlp_dim=512
+).to(DEVICE)
+optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
+criterion = nn.CrossEntropyLoss()
+
+
+def train(epoch: int):
+    net.train()
+    train_loss = 0
+    correct = 0
+    total = 0
+
+    loop = tqdm(enumerate(train_loader), total=len(train_loader), desc=f'Epoch {epoch}')
+    for batch_idx, (inputs, targets) in loop:
+        inputs: Tensor
+        targets: Tensor
+
+        inputs, targets = inputs.to(DEVICE), targets.to(DEVICE)
+        optimizer.zero_grad()
+        outputs = net(inputs)
+        loss = criterion(outputs, targets)
+        loss.backward()
+        optimizer.step()
+
+        train_loss += loss.item()
+        _, predicted = outputs.max(1)
+        total += targets.size(0)
+        correct += predicted.eq(targets).sum().item()
+
+        loop.set_postfix(loss=train_loss / (batch_idx + 1), acc=f'{round(100. * correct / total, 3)} ({correct}/{total})')
+
+
+def main() -> None:
+    for i in range(50):
+        train(i)
+
+
+if __name__ == '__main__':
+    main()
