@@ -67,8 +67,8 @@ def train(net: nn.Module, optimizer: torch.optim.Optimizer, epoch: int, train_lo
             tag='cifar10'
         )
 
-    writer.add_scalar('Loss/train', train_loss / (batch_idx + 1), epoch)
-    writer.add_scalar('Accuracy/train', 100. * correct / total, epoch)
+    writer.add_scalar('Train/loss', train_loss / (batch_idx + 1), epoch)
+    writer.add_scalar('Train/acc', 100. * correct / total, epoch)
 
     for name, param in net.named_parameters():
         layer, attr = os.path.splitext(name)
@@ -101,8 +101,8 @@ def test(net: nn.Module, epoch: int, test_loader: DataLoader, writer: SummaryWri
 
             loop.set_postfix(loss=test_loss / (batch_idx + 1), acc=100. * correct / total)
 
-        writer.add_scalar('Loss/test', test_loss / (batch_idx + 1), epoch)
-        writer.add_scalar('Accuracy/test', 100. * correct / total, epoch)
+        writer.add_scalar('Test/loss', test_loss / (batch_idx + 1), epoch)
+        writer.add_scalar('Test/acc', 100. * correct / total, epoch)
         writer.flush()
 
 
