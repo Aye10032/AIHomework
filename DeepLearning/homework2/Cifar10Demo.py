@@ -1,5 +1,8 @@
+import os
+
 import torch
 from torch import nn, Tensor
+from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import (
     Compose,
     Resize,
@@ -28,6 +31,7 @@ net = ViT(
 ).to(DEVICE)
 optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
 criterion = nn.CrossEntropyLoss()
+writer = SummaryWriter(log_dir=f'runs/cif10_lr1e-4')
 
 
 def sparse_selection():
@@ -61,7 +65,40 @@ def train(epoch: int, train_loader: DataLoader):
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
 
-        loop.set_postfix(loss=train_loss / (batch_idx + 1), acc=f'{round(100. * correct / total, 2)} ({correct}/{total})')
+        loop.set_postfix(loss=train_loss / (batch_idx + 1), acc=100. * correct / total)
+
+    writer.add_scalar('Loss/train', train_loss / (batch_idx + 1), epoch)
+    writer.add_scalar('Accuracy/train', 100. * correct / total, epoch)
+
+    for name, param in net.named_parameters():
+        layer, attr = os.path.splitext(name)
+        attr = attr[1:]
+        writer.add_histogram('{}/{}'.format(layer, attr), param.clone().cpu().data.numpy(), epoch)
+    writer.flush()
+
+
+def test(epoch: int, test_loader: DataLoader):
+    net.eval()
+    test_loss = 0
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for batch_idx, (inputs, targets) in enumerate(test_loader):
+            inputs: Tensor
+            targets: Tensor
+
+            inputs, targets = inputs.to(DEVICE), targets.to(DEVICE)
+            outputs = net(inputs)
+            loss = criterion(outputs, targets)
+
+            test_loss += loss.item()
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+
+        writer.add_scalar('Loss/test', test_loss / (batch_idx + 1), epoch)
+        writer.add_scalar('Accuracy/test', 100. * correct / total, epoch)
+        writer.flush()
 
 
 def main() -> None:
@@ -91,8 +128,9 @@ def main() -> None:
     train_loader = DataLoader(train_set, batch_size=256, shuffle=True, num_workers=2)
     test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=2)
 
-    for i in range(50):
+    for i in range(100):
         train(i, train_loader)
+        test(i, test_loader)
 
 
 if __name__ == '__main__':
