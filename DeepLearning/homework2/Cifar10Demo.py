@@ -18,34 +18,23 @@ from tqdm import tqdm
 
 from VitModel import ViT, DEVICE, ChannelSelection
 
-net = ViT(
-    image_size=256,
-    patch_size=32,
-    num_classes=10,
-    dim=512,
-    depth=6,
-    heads=8,
-    mlp_dim=128,
-    dropout=.1,
-    emb_dropout=.1
-).to(DEVICE)
-optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
-criterion = nn.CrossEntropyLoss()
-writer = SummaryWriter(log_dir=f'runs/cif10_lr1e-4')
 
-
-def sparse_selection():
+def sparse_selection(net: nn.Module):
     s = 1e-4
     for m in net.modules():
         if isinstance(m, ChannelSelection):
             m.indexes.grad.data.add_(s * torch.sign(m.indexes.data))
 
 
-def train(epoch: int, train_loader: DataLoader):
+def train(net: nn.Module, optimizer: torch.optim.Optimizer, epoch: int, train_loader: DataLoader, writer: SummaryWriter):
+    criterion = nn.CrossEntropyLoss()
     net.train()
     train_loss = 0
     correct = 0
     total = 0
+    output_embed = torch.empty((0, 10))
+    target_embeds = torch.empty(0)
+    image_embed = torch.empty((0, 3, 224, 224))
 
     loop = tqdm(enumerate(train_loader), total=len(train_loader), desc=f'Epoch {epoch}')
     for batch_idx, (inputs, targets) in loop:
@@ -57,7 +46,7 @@ def train(epoch: int, train_loader: DataLoader):
         outputs = net(inputs)
         loss = criterion(outputs, targets)
         loss.backward()
-        sparse_selection()
+        sparse_selection(net)
         optimizer.step()
 
         train_loss += loss.item()
@@ -67,6 +56,19 @@ def train(epoch: int, train_loader: DataLoader):
 
         loop.set_postfix(loss=train_loss / (batch_idx + 1), acc=100. * correct / total)
 
+        if batch_idx <= 1:
+            output_embed = torch.cat((output_embed, outputs.clone().cpu()), 0)
+            target_embeds = torch.cat((target_embeds, targets.data.clone().cpu()), 0)
+            image_embed = torch.cat((image_embed, inputs.data.clone().cpu()), 0)
+
+    writer.add_embedding(
+        output_embed,
+        metadata=target_embeds,
+        label_img=image_embed,
+        global_step=epoch,
+        tag='cifar10'
+    )
+
     writer.add_scalar('Loss/train', train_loss / (batch_idx + 1), epoch)
     writer.add_scalar('Accuracy/train', 100. * correct / total, epoch)
 
@@ -74,16 +76,19 @@ def train(epoch: int, train_loader: DataLoader):
         layer, attr = os.path.splitext(name)
         attr = attr[1:]
         writer.add_histogram('{}/{}'.format(layer, attr), param.clone().cpu().data.numpy(), epoch)
+
     writer.flush()
 
 
-def test(epoch: int, test_loader: DataLoader):
+def test(net: nn.Module, epoch: int, test_loader: DataLoader, writer: SummaryWriter):
+    criterion = nn.CrossEntropyLoss()
     net.eval()
     test_loss = 0
     correct = 0
     total = 0
     with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(test_loader):
+        loop = tqdm(enumerate(test_loader), total=len(test_loader), desc=f'Test {epoch}')
+        for batch_idx, (inputs, targets) in loop:
             inputs: Tensor
             targets: Tensor
 
@@ -96,12 +101,28 @@ def test(epoch: int, test_loader: DataLoader):
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
 
+            loop.set_postfix(loss=test_loss / (batch_idx + 1), acc=100. * correct / total)
+
         writer.add_scalar('Loss/test', test_loss / (batch_idx + 1), epoch)
         writer.add_scalar('Accuracy/test', 100. * correct / total, epoch)
         writer.flush()
 
 
 def main() -> None:
+    net = ViT(
+        image_size=256,
+        patch_size=32,
+        num_classes=10,
+        dim=512,
+        depth=6,
+        heads=8,
+        mlp_dim=128,
+        dropout=.1,
+        emb_dropout=.1
+    ).to(DEVICE)
+    optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
+    writer = SummaryWriter(log_dir=f'runs/cif10_lr1e-4')
+
     trans_train = Compose([
         RandomResizedCrop(224),
         RandomHorizontalFlip(),
@@ -128,9 +149,12 @@ def main() -> None:
     train_loader = DataLoader(train_set, batch_size=256, shuffle=True, num_workers=2)
     test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=2)
 
+    with torch.no_grad():
+        writer.add_graph(net, input_to_model=train_set.__getitem__(0)[0].unsqueeze(0).to(DEVICE))
+
     for i in range(100):
-        train(i, train_loader)
-        test(i, test_loader)
+        train(net, optimizer, i, train_loader, writer)
+        test(net, i, test_loader, writer)
 
 
 if __name__ == '__main__':
