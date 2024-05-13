@@ -26,7 +26,14 @@ def sparse_selection(net: nn.Module):
             m.indexes.grad.data.add_(s * torch.sign(m.indexes.data))
 
 
-def train(net: nn.Module, optimizer: torch.optim.Optimizer, epoch: int, train_loader: DataLoader, writer: SummaryWriter):
+def train(
+        net: nn.Module,
+        optimizer: torch.optim.Optimizer,
+        schedule: torch.optim.lr_scheduler.CosineAnnealingLR,
+        epoch: int,
+        train_loader: DataLoader,
+        writer: SummaryWriter
+):
     criterion = nn.CrossEntropyLoss()
     net.train()
     train_loss = 0
@@ -47,6 +54,7 @@ def train(net: nn.Module, optimizer: torch.optim.Optimizer, epoch: int, train_lo
         loss.backward()
         sparse_selection(net)
         optimizer.step()
+        schedule.step()
 
         train_loss += loss.item()
         _, predicted = outputs.max(1)
@@ -58,6 +66,8 @@ def train(net: nn.Module, optimizer: torch.optim.Optimizer, epoch: int, train_lo
         if batch_idx <= 3:
             output_embed = torch.cat((output_embed, outputs.clone().cpu()), 0)
             target_embeds = torch.cat((target_embeds, targets.data.clone().cpu()), 0)
+
+    writer.add_scalar('lr', schedule.get_last_lr()[0], epoch)
 
     if epoch % 9 == 0:
         writer.add_embedding(
@@ -107,19 +117,8 @@ def test(net: nn.Module, epoch: int, test_loader: DataLoader, writer: SummaryWri
 
 
 def main() -> None:
-    net = ViT(
-        image_size=256,
-        patch_size=32,
-        num_classes=10,
-        dim=512,
-        depth=6,
-        heads=8,
-        mlp_dim=128,
-        dropout=.1,
-        emb_dropout=.1
-    ).to(DEVICE)
-    optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
-    writer = SummaryWriter(log_dir=f'runs/cif10_lr1e-4')
+    lr = 1e-3
+    max_epoch = 100
 
     trans_train = Compose([
         RandomResizedCrop(224),
@@ -147,11 +146,26 @@ def main() -> None:
     train_loader = DataLoader(train_set, batch_size=256, shuffle=True, num_workers=2)
     test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=2)
 
+    net = ViT(
+        image_size=256,
+        patch_size=32,
+        num_classes=10,
+        dim=512,
+        depth=3,
+        heads=4,
+        mlp_dim=128,
+        dropout=.1,
+        emb_dropout=.1
+    ).to(DEVICE)
+    optimizer = torch.optim.Adam(net.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epoch * len(train_loader), eta_min=1e-5)
+    writer = SummaryWriter(log_dir=f'runs/cif10_lr{lr}_ep{max_epoch}')
+
     with torch.no_grad():
         writer.add_graph(net, input_to_model=train_set.__getitem__(0)[0].unsqueeze(0).to(DEVICE))
 
-    for i in range(100):
-        train(net, optimizer, i, train_loader, writer)
+    for i in range(max_epoch):
+        train(net, optimizer, scheduler, i, train_loader, writer)
         test(net, i, test_loader, writer)
 
 
