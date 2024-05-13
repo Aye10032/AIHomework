@@ -117,7 +117,7 @@ def test(net: nn.Module, epoch: int, test_loader: DataLoader, writer: SummaryWri
 
 
 def main() -> None:
-    lr = 1e-3
+    lr = 3 * 1e-3
     max_epoch = 100
 
     trans_train = Compose([
