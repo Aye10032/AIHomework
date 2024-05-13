@@ -34,7 +34,6 @@ def train(net: nn.Module, optimizer: torch.optim.Optimizer, epoch: int, train_lo
     total = 0
     output_embed = torch.empty((0, 10))
     target_embeds = torch.empty(0)
-    image_embed = torch.empty((0, 3, 224, 224))
 
     loop = tqdm(enumerate(train_loader), total=len(train_loader), desc=f'Epoch {epoch}')
     for batch_idx, (inputs, targets) in loop:
@@ -56,18 +55,17 @@ def train(net: nn.Module, optimizer: torch.optim.Optimizer, epoch: int, train_lo
 
         loop.set_postfix(loss=train_loss / (batch_idx + 1), acc=100. * correct / total)
 
-        if batch_idx <= 1:
+        if batch_idx <= 3:
             output_embed = torch.cat((output_embed, outputs.clone().cpu()), 0)
             target_embeds = torch.cat((target_embeds, targets.data.clone().cpu()), 0)
-            image_embed = torch.cat((image_embed, inputs.data.clone().cpu()), 0)
 
-    writer.add_embedding(
-        output_embed,
-        metadata=target_embeds,
-        label_img=image_embed,
-        global_step=epoch,
-        tag='cifar10'
-    )
+    if epoch % 9 == 0:
+        writer.add_embedding(
+            output_embed,
+            metadata=target_embeds,
+            global_step=epoch + 1,
+            tag='cifar10'
+        )
 
     writer.add_scalar('Loss/train', train_loss / (batch_idx + 1), epoch)
     writer.add_scalar('Accuracy/train', 100. * correct / total, epoch)
