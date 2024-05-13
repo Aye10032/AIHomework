@@ -9,6 +9,7 @@ from torchvision.transforms import (
     RandomResizedCrop,
     CenterCrop,
     RandomHorizontalFlip,
+    RandomRotation,
     ToTensor,
     Normalize
 )
@@ -117,12 +118,13 @@ def test(net: nn.Module, epoch: int, test_loader: DataLoader, writer: SummaryWri
 
 
 def main() -> None:
-    lr = 3 * 1e-3
-    max_epoch = 100
+    lr = 1e-4
+    max_epoch = 500
 
     trans_train = Compose([
         RandomResizedCrop(224),
         RandomHorizontalFlip(),
+        # RandomRotation(45),
         ToTensor(),
         Normalize(
             mean=[0.485, 0.456, 0.406],
@@ -151,8 +153,8 @@ def main() -> None:
         patch_size=32,
         num_classes=10,
         dim=512,
-        depth=3,
-        heads=4,
+        depth=6,
+        heads=8,
         mlp_dim=128,
         dropout=.1,
         emb_dropout=.1
@@ -166,7 +168,12 @@ def main() -> None:
 
     for i in range(max_epoch):
         train(net, optimizer, scheduler, i, train_loader, writer)
-        test(net, i, test_loader, writer)
+
+        if i % 5 == 0:
+            test(net, i, test_loader, writer)
+
+        if i % 50 == 0 and i != 0:
+            torch.save(net.state_dict(), f'models/cifar10_lr{lr}_ep{i}.pth')
 
 
 if __name__ == '__main__':
