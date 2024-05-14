@@ -133,7 +133,7 @@ Z12 w1715429018
 FD:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/matrix_pe.v
 L0 1
 Z13 OL;L;10.4;61
-Z14 !s108 1715699437.657000
+Z14 !s108 1715703984.512000
 Z15 !s107 D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/pe_acc.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/pe_mult.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/parallel_pe.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/src/matrix_pe/matrix_pe.v|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/sim/tb_top_2.v|
 Z16 !s90 -reportprogress|300|-f|D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/sim/compile_2.f|
 !i113 0
@@ -365,7 +365,7 @@ r1
 !s100 i8oOTHo5GLIJ^JFR8CcL20
 ITg`=ffLe@U5WV26iZE@4;2
 R11
-w1715695988
+w1715703388
 R21
 R22
 L0 3

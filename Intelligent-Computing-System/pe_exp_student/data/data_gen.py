@@ -95,7 +95,7 @@ if __name__ == "__main__":
     pfr = open("result_my", "w+")  # 结果文件，写入模式
 
     # 调用verctor_gen函数多次，分别以不同的参数进行计算并记录结果
+    verctor_gen(pfr, nfr, sfr, 0x32)  # 以50为参数调用
     verctor_gen(pfr, nfr, sfr, 0x14)  # 以20为参数调用
     verctor_gen(pfr, nfr, sfr, 0x1e)  # 以30为参数调用
     verctor_gen(pfr, nfr, sfr, 0x28)  # 以40为参数调用
-    verctor_gen(pfr, nfr, sfr, 0x32)  # 以50为参数调用
