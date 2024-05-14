@@ -31,9 +31,9 @@ reg [ 31:0] result[3:0];
 initial
 begin
   $readmemh("D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/data/inst", inst);
-  $readmemh("D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/data/neuron", neuron);
-  $readmemh("D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/data/weight", weight);
-  $readmemb("D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/data/result", result);
+  $readmemh("D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/data/neuron_my", neuron);
+  $readmemh("D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/data/weight_my", weight);
+  $readmemb("D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/data/result_my", result);
 end
 
 reg [ 1:0]   inst_addr;
@@ -142,10 +142,10 @@ always@(posedge clk or negedge rst_n) begin
   if(!rst_n) begin
     compare_pass <= 1'b1;
   end else if(pe_vld_o && (pe_result != result[result_addr])) begin
-//    $display("FAIL: num.%d result not correct!!!", result_addr);
+    $display("FAIL: num.%d result not correct!!!", result_addr);
     compare_pass <= 1'b0;
-//  end else if(pe_vld_o && (pe_result == reset[result_addr])) begin
-//    $display("INFO: num.%d result is correct.", result_addr);
+  end else if(pe_vld_o && (pe_result == result[result_addr])) begin
+    $display("INFO: num.%d result is correct.", result_addr);
   end
 end
 
