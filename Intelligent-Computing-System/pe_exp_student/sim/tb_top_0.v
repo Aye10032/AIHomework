@@ -31,9 +31,9 @@ reg [ 31:0] result[3:0];
 initial
 begin
   $readmemh("D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/data/inst", inst);
-  $readmemh("D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/data/neuron", neuron);
-  $readmemh("D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/data/weight", weight);
-  $readmemb("D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/data/result", result);
+  $readmemh("D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/data/neuron_my", neuron);
+  $readmemh("D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/data/weight_my", weight);
+  $readmemb("D:/program/github/AIHomework/Intelligent-Computing-System/pe_exp_student/data/result_my", result);
 end
 
 reg [ 1:0]   inst_addr;

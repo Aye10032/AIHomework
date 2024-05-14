@@ -14,7 +14,7 @@ wire signed [31:0] mult_res = neuron * weight;
 reg [31:0] psum_r;
 
 /*加法器*/  /*TODO*/
-wire [31:0] psum_d = {32{~ctl[0]}} & psum_r + mult_res;
+wire [31:0] psum_d = ({32{~ctl[0]}} & psum_r) + mult_res;
 
 /*部分和寄存器*/
 always@(posedge clk or negedge rst_n)
