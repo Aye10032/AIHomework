@@ -32,7 +32,7 @@ def num2str(num: int, mode: int, width: int):
     else:
         text = str_ori
 
-    return text
+    return text[-32:]
 
 
 def verctor_gen(pfr_io: TextIO, nfr_io: TextIO, sfr_io: TextIO, iter_num: int):
@@ -47,7 +47,7 @@ def verctor_gen(pfr_io: TextIO, nfr_io: TextIO, sfr_io: TextIO, iter_num: int):
     """
 
     line_iter = 32  # 每行迭代次数
-    base = 2 ** 12  # 基数
+    base = 2 ** 16  # 基数
     width = 4  # 数字宽度
 
     partsum = 0  # 部分和初始化
@@ -58,8 +58,10 @@ def verctor_gen(pfr_io: TextIO, nfr_io: TextIO, sfr_io: TextIO, iter_num: int):
 
         # 生成神经元和同步字符串
         for k in range(line_iter):
-            neu = rd.randint(0, 2 ** 12) % base
-            syn = rd.randint(0, 2 ** 12) % base
+            rd.seed(i*k*10)
+            neu = rd.randint(0, 2 ** 16) % base
+            rd.seed(i*k*100)
+            syn = rd.randint(0, 2 ** 16) % base
             neu_str = neu_str + num2str(neu, 1, width)
             syn_str = syn_str + num2str(syn, 1, width)
 
@@ -80,9 +82,9 @@ def verctor_gen(pfr_io: TextIO, nfr_io: TextIO, sfr_io: TextIO, iter_num: int):
 
     # 调整部分和确保非负，然后写入文件
     if partsum < 0:
-        partsum += 2 ** 32
+        partsum += 2 ** 45
 
-    pfr_io.write(num2str(partsum, 0, 32) + "\n")
+    pfr_io.write(num2str(partsum, 0, 45) + "\n")
 
 
 # 主程序入口
@@ -92,7 +94,6 @@ if __name__ == "__main__":
     sfr = open("weight_my", "w+")  # 权重文件，写入模式
     pfr = open("result_my", "w+")  # 结果文件，写入模式
 
-    rd.seed(1)
     # 调用verctor_gen函数多次，分别以不同的参数进行计算并记录结果
     verctor_gen(pfr, nfr, sfr, 0x14)  # 以20为参数调用
     verctor_gen(pfr, nfr, sfr, 0x1e)  # 以30为参数调用
