@@ -1,13 +1,11 @@
+from dataclasses import field
+
 import torch
-from torch.utils.data import DataLoader
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
 import torch.nn as nn
 from torch import Tensor
-from tqdm import tqdm
-
-DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 class Attention(nn.Module):
@@ -93,7 +91,8 @@ class Transformer(nn.Module):
             heads: int,
             hidden_size: int,
             mlp_size: int,
-            dropout: float = 0.
+            device: list[torch.device],
+            dropout: float = 0.,
     ):
         """
         初始化Transformer模型。
@@ -107,16 +106,27 @@ class Transformer(nn.Module):
         """
         super(Transformer, self).__init__()
 
-        self.norm = nn.LayerNorm(dim)
+        self.device = device
         self.layers = nn.ModuleList([])
+        self.norm = nn.LayerNorm(dim).to(device[-1])
 
-        for _ in range(layers):
-            self.layers.append(
-                nn.ModuleList([
-                    Attention(dim, heads=heads, dim_head=hidden_size, dropout=dropout),
-                    FeedForward(dim, mlp_size, dropout=dropout)
-                ])
-            )
+        self.change_layer = layers // 2
+
+        for index in range(layers):
+            if index <= self.change_layer:
+                self.layers.append(
+                    nn.ModuleList([
+                        Attention(dim, heads=heads, dim_head=hidden_size, dropout=dropout),
+                        FeedForward(dim, mlp_size, dropout=dropout)
+                    ]).to(device[0])
+                )
+            else:
+                self.layers.append(
+                    nn.ModuleList([
+                        Attention(dim, heads=heads, dim_head=hidden_size, dropout=dropout),
+                        FeedForward(dim, mlp_size, dropout=dropout)
+                    ]).to(device[-1])
+                )
 
     def forward(self, x: Tensor):
         """
@@ -126,10 +136,12 @@ class Transformer(nn.Module):
         :return: 处理后的张量。
         """
 
-        for attn, ff in self.layers:
+        for index, (attn, ff) in enumerate(self.layers):
             x = attn(x)
             x = ff(x) + x
-        return x
+            if index == self.change_layer:
+                x = x.to(self.device[-1])
+        return self.norm(x)
 
 
 def pair(t):
@@ -147,6 +159,7 @@ class ViT(nn.Module):
             heads: int,
             hidden_size: int,
             mlp_size: int,
+            device: list[torch.device] = None,
             pool: str = 'cls',
             channels: int = 3,
             dropout: float = 0.,
@@ -183,27 +196,32 @@ class ViT(nn.Module):
         # 确保池化方法的有效性
         assert pool in {'cls', 'mean'}, 'err pool type'
 
+        if device is None:
+            self.device = [torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')]
+        else:
+            self.device = device
+
         # 定义从图像到patch嵌入的转换过程
         self.to_patch_embedding = nn.Sequential(
             Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=patch_height, p2=patch_width),
             nn.LayerNorm(patch_dim),
             nn.Linear(patch_dim, dim),
             nn.LayerNorm(dim)
-        )
+        ).to(device[0])
 
         # 初始化位置嵌入和分类token
-        self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
-        self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
-        self.dropout = nn.Dropout(emb_dropout)
+        self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim).to(device[0]))
+        self.cls_token = nn.Parameter(torch.randn(1, 1, dim).to(device[0]))
+        self.dropout = nn.Dropout(emb_dropout).to(device[0])
 
         # 初始化Transformer编码器
-        self.transform = Transformer(dim, layers, heads, hidden_size, mlp_size, dropout)
+        self.transform = Transformer(dim, layers, heads, hidden_size, mlp_size, device, dropout)
 
         self.pool = pool
-        self.to_latent = nn.Identity()
+        self.to_latent = nn.Identity().to(self.device[-1])
 
         # 定义最终的线性分类器
-        self.mlp_head = nn.Linear(dim, num_classes)
+        self.mlp_head = nn.Linear(dim, num_classes).to(self.device[-1])
 
     def forward(self, img: Tensor):
         """
