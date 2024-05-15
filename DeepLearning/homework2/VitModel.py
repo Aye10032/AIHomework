@@ -11,41 +11,61 @@ DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 class Attention(nn.Module):
-    def __init__(self, dim: int, heads: int = 8, dim_head: int = 64, dropout: float = 0.):
+    def __init__(
+            self,
+            dim: int,
+            heads: int = 8,
+            dim_head: int = 64,
+            dropout: float = 0.
+    ):
+        """
+        初始化注意力机制模块。
+
+        :param dim: 输入特征维度
+        :param heads: 注意力头的数量，默认为8
+        :param dim_head: 每个注意力头的维度，默认为64
+        :param dropout: Dropout比例，默认为0.
+        """
         super(Attention, self).__init__()
 
+        # 计算内部维度和是否需要投影输出的标志
         inner_dim = dim_head * heads
         project_out = not (heads == 1 and dim_head == dim)
 
-        self.heads = heads
-        self.scale = dim_head ** -0.5
+        self.heads = heads  # 注意力头数
+        self.scale = dim_head ** -0.5  # 缩放因子
 
-        self.norm = nn.LayerNorm(dim)
+        self.norm = nn.LayerNorm(dim)  # 层归一化
 
-        self.attend = nn.Softmax(dim=-1)
-        self.dropout = nn.Dropout(dropout)
+        self.attend = nn.Softmax(dim=-1)  # 注意力分布计算
+        self.dropout = nn.Dropout(dropout)  # Dropout层
 
-        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias=False)
+        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias=False)  # 投影层，用于生成Q、K、V
 
         self.to_out = nn.Sequential(
             nn.Linear(inner_dim, dim),
             nn.Dropout(dropout)
-        ) if project_out else nn.Identity()
+        ) if project_out else nn.Identity()  # 投影回原始维度或保持不变
 
     def forward(self, x):
-        x = self.norm(x)
+        """
+        前向传播。
 
-        qkv = self.to_qkv(x).chunk(3, dim=-1)
-        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=self.heads), qkv)
+        :param x: 输入特征
+        :return: 经过注意力机制处理后的特征
+        """
+        x = self.norm(x)  # 层归一化
 
-        dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
+        qkv = self.to_qkv(x).chunk(3, dim=-1)  # 将输出分为Q、K、V
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=self.heads), qkv)  # 重新排列Q、K、V的形状
 
-        attn = self.attend(dots)
-        attn = self.dropout(attn)
+        dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale  # 计算Q和K的点积
+        attn = self.attend(dots)  # 计算注意力分布
+        attn = self.dropout(attn)  # 应用dropout
 
-        out = torch.matmul(attn, v)
-        out = rearrange(out, 'b h n d -> b n (h d)')
-        return self.to_out(out)
+        out = torch.matmul(attn, v)  # 根据注意力分布加权V
+        out = rearrange(out, 'b h n d -> b n (h d)')  # 重新排列输出形状
+        return self.to_out(out)  # 投影回原始维度或保持不变
 
 
 class FeedForward(nn.Module):
@@ -69,26 +89,43 @@ class Transformer(nn.Module):
     def __init__(
             self,
             dim: int,
-            depth: int,
+            layers: int,
             heads: int,
-            dim_head: int,
-            mlp_dim: int,
+            hidden_size: int,
+            mlp_size: int,
             dropout: float = 0.
     ):
+        """
+        初始化Transformer模型。
+
+        :param dim: 输入数据的维度。
+        :param layers: 隐藏层的数量。
+        :param heads: 注意力机制的头数。
+        :param hidden_size: 注意力机制中每个头的维度。
+        :param mlp_size: 多层感知器(MLP)的维度。
+        :param dropout: Dropout比例，默认为0。
+        """
         super(Transformer, self).__init__()
 
         self.norm = nn.LayerNorm(dim)
         self.layers = nn.ModuleList([])
 
-        for _ in range(depth):
+        for _ in range(layers):
             self.layers.append(
                 nn.ModuleList([
-                    Attention(dim, heads=heads, dim_head=dim_head, dropout=dropout),
-                    FeedForward(dim, mlp_dim, dropout=dropout)
+                    Attention(dim, heads=heads, dim_head=hidden_size, dropout=dropout),
+                    FeedForward(dim, mlp_size, dropout=dropout)
                 ])
             )
 
     def forward(self, x: Tensor):
+        """
+        前向传播过程。
+
+        :param x: 输入的张量。
+        :return: 处理后的张量。
+        """
+
         for attn, ff in self.layers:
             x = attn(x)
             x = ff(x) + x
@@ -106,27 +143,47 @@ class ViT(nn.Module):
             patch_size: tuple[int, int] | int,
             num_classes: int,
             dim: int,
-            depth: int,
+            layers: int,
             heads: int,
-            mlp_dim: int,
+            hidden_size: int,
+            mlp_size: int,
             pool: str = 'cls',
             channels: int = 3,
-            dim_head: int = 64,
             dropout: float = 0.,
-            emb_dropout: float = 0
+            emb_dropout: float = 0.
     ):
+        """
+        初始化视觉Transformer模型。
+
+        :param image_size: 输入图像的尺寸，可以是单个整数（正方形图像）或包含两个整数的元组（长宽）。
+        :param patch_size: 将图像切割成的小块的尺寸，可以是单个整数（正方形小块）或包含两个整数的元组（长宽）。
+        :param num_classes: 分类任务的目标类别数。
+        :param dim: Transformer编码器的维度。
+        :param layers: Transformer编码器的层数。
+        :param heads: Transformer编码器中多头注意力的头数。
+        :param hidden_size: Transformer编码器中FeedForward层的隐藏尺寸。
+        :param mlp_size: Transformer编码器中多层感知器（MLP）的尺寸。
+        :param pool: 对编码器输出进行池化的方法，'cls'表示使用CLS标记，'mean'表示使用平均值。
+        :param channels: 图像的通道数，默认为3（RGB图像）。
+        :param dropout: Transformer编码器中应用的dropout比例。
+        :param emb_dropout: 嵌入层中应用的dropout比例。
+        """
         super(ViT, self).__init__()
 
+        # 计算图像切割后的小块数量和每个小块的维度
         image_height, image_width = pair(image_size)
         patch_height, patch_width = pair(patch_size)
 
+        # 确保图像尺寸能被小块尺寸整除
         assert image_height % patch_height == 0 and image_width % patch_width == 0, 'Error image size'
 
         num_patches = (image_height // patch_height) * (image_width // patch_width)
         patch_dim = channels * patch_height * patch_width
 
+        # 确保池化方法的有效性
         assert pool in {'cls', 'mean'}, 'err pool type'
 
+        # 定义从图像到patch嵌入的转换过程
         self.to_patch_embedding = nn.Sequential(
             Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=patch_height, p2=patch_width),
             nn.LayerNorm(patch_dim),
@@ -134,28 +191,40 @@ class ViT(nn.Module):
             nn.LayerNorm(dim)
         )
 
+        # 初始化位置嵌入和分类token
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
 
-        self.transform = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
+        # 初始化Transformer编码器
+        self.transform = Transformer(dim, layers, heads, hidden_size, mlp_size, dropout)
 
         self.pool = pool
         self.to_latent = nn.Identity()
 
+        # 定义最终的线性分类器
         self.mlp_head = nn.Linear(dim, num_classes)
 
     def forward(self, img: Tensor):
-        x: Tensor = self.to_patch_embedding(img)
+        """
+        前向传播过程。
+
+        :param img: 输入的图像张量。
+        :return: 经过模型处理后得到的类别概率分布。
+        """
+        x: Tensor = self.to_patch_embedding(img)  # 将图像转换为patch嵌入
         b, n, _ = x.shape
 
+        # 添加分类token并添加位置嵌入
         cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b=b)
         x = torch.cat((cls_tokens, x), dim=1)
         x += self.pos_embedding[:, :(n + 1)]
         x = self.dropout(x)
 
+        # 通过Transformer编码器
         x = self.transform(x)
 
+        # 根据配置进行池化
         x = x.mean(dim=1) if self.pool == 'mean' else x[:, 0]
 
         x = self.to_latent(x)
