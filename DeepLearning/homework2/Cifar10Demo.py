@@ -99,7 +99,7 @@ def main() -> None:
             test(net, [device], i, test_loader, writer)
 
         if i % 50 == 0 and i != 0 and local_rank == 0:
-            torch.save(net.state_dict(), f'models/cifar10_head6_layer3_dim256_ep{i}.pth')
+            torch.save(net.state_dict(), f'models/cif10_head{heads}_layer{layers}_dim{dim}_ep{i}.pth')
 
 
 if __name__ == '__main__':

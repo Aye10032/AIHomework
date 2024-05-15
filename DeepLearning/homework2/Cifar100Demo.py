@@ -46,8 +46,8 @@ def load_data():
     train_sample = torch.utils.data.distributed.DistributedSampler(train_set)
     test_sample = torch.utils.data.distributed.DistributedSampler(test_set)
 
-    train_loader = DataLoader(train_set, batch_size=256, shuffle=False, num_workers=4, sampler=train_sample)
-    test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=4, sampler=test_sample)
+    train_loader = DataLoader(train_set, batch_size=256, shuffle=False, num_workers=2, sampler=train_sample)
+    test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=2, sampler=test_sample)
 
     return train_loader, test_loader
 
