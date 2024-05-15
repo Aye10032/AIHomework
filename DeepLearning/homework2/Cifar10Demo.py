@@ -172,6 +172,11 @@ def main() -> None:
 
     lr = 1e-4
     max_epoch = 500
+    dim = 512
+    layers = 7
+    heads = 8
+    hidden_size = 64
+    mlp_size = 128
 
     train_loader, test_loader = load_data()
 
@@ -183,11 +188,11 @@ def main() -> None:
         image_size=(224, 224),
         patch_size=(32, 32),
         num_classes=10,
-        dim=256,
-        layers=3,
-        heads=6,
-        hidden_size=64,
-        mlp_size=128,
+        dim=dim,
+        layers=layers,
+        heads=heads,
+        hidden_size=hidden_size,
+        mlp_size=mlp_size,
         dropout=0.,
         emb_dropout=0.,
         device=[device]
@@ -195,7 +200,7 @@ def main() -> None:
     ddp_net = nn.parallel.DistributedDataParallel(net, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
     optimizer = torch.optim.Adam(ddp_net.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epoch * len(train_loader), eta_min=1e-5)
-    writer = SummaryWriter(log_dir=f'runs/cif10_lr{lr}_head6_layer3_dim256_ep500')
+    writer = SummaryWriter(log_dir=f'runs/cif10_lr{lr}_head{heads}_layer{layers}_dim{dim}_ep500')
 
     with torch.no_grad():
         tensor = torch.rand(1, 3, 224, 224).to(device)
