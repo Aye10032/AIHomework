@@ -122,7 +122,7 @@ def main() -> None:
     max_epoch = 300
 
     trans_train = Compose([
-        # RandomResizedCrop(224),
+        RandomResizedCrop(224),
         RandomHorizontalFlip(),
         # RandomRotation(45),
         ToTensor(),
@@ -133,8 +133,8 @@ def main() -> None:
     ])
 
     trans_valid = Compose([
-        # Resize(256),
-        # CenterCrop(224),
+        Resize(256),
+        CenterCrop(224),
         ToTensor(),
         Normalize(
             mean=[0.485, 0.456, 0.406],
@@ -168,7 +168,8 @@ def main() -> None:
     writer = SummaryWriter(log_dir=f'runs/imagenet_base_ep{max_epoch}')
 
     with torch.no_grad():
-        writer.add_graph(net, input_to_model=train_set.__getitem__(0)[0].unsqueeze(0).to(DEVICE))
+        tensor = torch.randn(1, 3, 224, 224).to(DEVICE)
+        writer.add_graph(net, input_to_model=tensor)
 
     for i in range(max_epoch):
         train(net, optimizer, scheduler, i, train_loader, writer)
