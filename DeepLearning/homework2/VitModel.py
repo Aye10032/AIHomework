@@ -277,99 +277,176 @@ def train(
         device: list[torch.device],
         epoch: int,
         train_loader: DataLoader,
-        writer: SummaryWriter
+        writer: SummaryWriter,
+        ddp: bool = False
 ):
+    """
+    训练给定的网络模型。
+
+    :param net: 要训练的网络，继承自nn.Module。
+    :param optimizer: 用于优化网络参数的优化器，来自torch.optim。
+    :param schedule: 学习率调度器，用于动态调整学习率，此处为CosineAnnealingLR。
+    :param device: 指定训练时使用的设备列表。
+    :param epoch: 当前训练的轮次。
+    :param train_loader: 训练数据的加载器，来自torch.utils.data.DataLoader。
+    :param writer: 用于记录训练过程数据的SummaryWriter，常用于TensorBoard。
+    :param ddp: 是否使用分布式数据并行训练，默认为False。
+    :return: 无返回值。
+    """
+    # 初始化损失函数
     criterion = nn.CrossEntropyLoss()
+    # 将网络设置为训练模式
     net.train()
+    # 初始化训练过程的损失和正确率等统计
     train_loss = 0
     correct = 0
     total = 0
+    # 初始化用于TensorBoard嵌入展示的张量
     output_embed = torch.empty((0, 10))
     target_embeds = torch.empty(0)
 
-    train_loader.sampler.set_epoch(epoch)
+    # 如果使用分布式数据并行，更新训练数据采样器的epoch
+    if ddp:
+        train_loader.sampler.set_epoch(epoch)
 
-    if dist.get_rank() == 0:
-        loop = tqdm(enumerate(train_loader), total=len(train_loader), desc=f'Epoch {epoch}')
+        # 设置进度条，用于显示训练进度和性能指标
+        if dist.get_rank() == 0:
+            loop = tqdm(enumerate(train_loader), total=len(train_loader), desc=f'Epoch {epoch}')
+        else:
+            loop = enumerate(train_loader)
     else:
-        loop = enumerate(train_loader)
+        loop = tqdm(enumerate(train_loader), total=len(train_loader), desc=f'Epoch {epoch}')
 
+    # 开始训练循环
     for batch_idx, (inputs, targets) in loop:
         inputs: Tensor
         targets: Tensor
 
+        # 数据移至指定设备
         inputs, targets = inputs.to(device[0]), targets.to(device[-1])
+        # 清空梯度
         optimizer.zero_grad()
+        # 前向传播
         outputs = net(inputs)
+        # 计算损失
         loss = criterion(outputs, targets)
+        # 反向传播
         loss.backward()
+        # 执行特定的稀疏选择操作
         sparse_selection(net)
+        # 更新网络参数
         optimizer.step()
+        # 更新学习率
         schedule.step()
 
+        # 更新训练过程的统计量
         train_loss += loss.item()
         _, predicted = outputs.max(1)
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
 
-        if dist.get_rank() == 0:
+        # 如果是主进程，则更新进度条显示
+        if ddp:
+            if dist.get_rank() == 0:
+                loop.set_postfix(loss=train_loss / (batch_idx + 1), acc=100. * correct / total)
+        else:
             loop.set_postfix(loss=train_loss / (batch_idx + 1), acc=100. * correct / total)
 
+        # 前几个批次，收集输出和目标以用于TensorBoard的嵌入展示
         if batch_idx <= 3:
             output_embed = torch.cat((output_embed, outputs.clone().cpu()), 0)
             target_embeds = torch.cat((target_embeds, targets.data.clone().cpu()), 0)
 
+    # 记录当前学习率
     writer.add_scalar('lr', schedule.get_last_lr()[0], epoch)
 
-    if dist.get_rank() == 0:
-        if epoch % 9 == 0:
-            writer.add_embedding(
-                output_embed,
-                metadata=target_embeds,
-                global_step=epoch + 1,
-                tag='cifar10'
-            )
+    # 如果是主进程，记录训练细节到TensorBoard
+    if ddp:
+        if dist.get_rank() != 0:
+            return
 
-        writer.add_scalar('Train/loss', train_loss / (batch_idx + 1), epoch)
-        writer.add_scalar('Train/acc', 100. * correct / total, epoch)
+    # 每隔一定轮次，记录嵌入到TensorBoard
+    if epoch % 9 == 0:
+        writer.add_embedding(
+            output_embed,
+            metadata=target_embeds,
+            global_step=epoch + 1,
+            tag='cifar10'
+        )
 
-        for name, param in net.named_parameters():
-            layer, attr = os.path.splitext(name)
-            attr = attr[1:]
-            writer.add_histogram('{}/{}'.format(layer, attr), param.clone().cpu().data.numpy(), epoch)
+    # 记录训练损失和准确率
+    writer.add_scalar('Train/loss', train_loss / (batch_idx + 1), epoch)
+    writer.add_scalar('Train/acc', 100. * correct / total, epoch)
 
-        writer.flush()
+    # 记录每层参数的直方图
+    for name, param in net.named_parameters():
+        layer, attr = os.path.splitext(name)
+        attr = attr[1:]
+        writer.add_histogram('{}/{}'.format(layer, attr), param.clone().cpu().data.numpy(), epoch)
+
+    # 刷新writer，确保数据写入
+    writer.flush()
 
 
-def test(net: nn.Module, device: list[torch.device], epoch: int, test_loader: DataLoader, writer: SummaryWriter):
-    criterion = nn.CrossEntropyLoss()
-    net.eval()
-    test_loss = 0
-    correct = 0
-    total = 0
-    with torch.no_grad():
-        if dist.get_rank() == 0:
-            loop = tqdm(enumerate(test_loader), total=len(test_loader), desc=f'Test {epoch}')
+def test(
+        net: nn.Module,
+        device: list[torch.device],
+        epoch: int,
+        test_loader: DataLoader,
+        writer: SummaryWriter,
+        ddp: bool = False
+):
+    """
+    测试给定网络的性能。
+
+    :param net: 要测试的网络，是一个nn.Module的子类。
+    :param device: 用于测试的设备列表，第一个设备用于加载数据，最后一个设备用于计算。
+    :param epoch: 当前的训练轮次，用于记录测试结果。
+    :param test_loader: 测试数据集的数据加载器。
+    :param writer: 用于写入TensorBoard日志的SummaryWriter对象。
+    :param ddp: 是否使用分布式数据并行训练。默认为False。
+    :return: 无返回值。
+    """
+    criterion = nn.CrossEntropyLoss()  # 定义损失函数
+    net.eval()  # 将网络设置为评估模式
+    test_loss = 0  # 初始化测试损失
+    correct = 0  # 初始化正确预测数
+    total = 0  # 初始化总预测数
+    with torch.no_grad():  # 禁止计算梯度
+        # 根据是否使用DDP和当前进程排名，选择不同的进度条更新方式
+        if ddp:
+            if dist.get_rank() == 0:
+                loop = tqdm(enumerate(test_loader), total=len(test_loader), desc=f'Test {epoch}')
+            else:
+                loop = enumerate(test_loader)
         else:
-            loop = enumerate(test_loader)
+            loop = tqdm(enumerate(test_loader), total=len(test_loader), desc=f'Test {epoch}')
 
         for batch_idx, (inputs, targets) in loop:
             inputs: Tensor
             targets: Tensor
 
+            # 数据移动到指定设备
             inputs, targets = inputs.to(device[0]), targets.to(device[-1])
-            outputs = net(inputs)
-            loss = criterion(outputs, targets)
+            outputs = net(inputs)  # 网络前向传播
+            loss = criterion(outputs, targets)  # 计算损失
 
-            test_loss += loss.item()
-            _, predicted = outputs.max(1)
-            total += targets.size(0)
-            correct += predicted.eq(targets).sum().item()
+            test_loss += loss.item()  # 累加测试损失
+            _, predicted = outputs.max(1)  # 获取预测类别
+            total += targets.size(0)  # 累加总样本数
+            correct += predicted.eq(targets).sum().item()  # 累加正确预测数
 
-            if dist.get_rank() == 0:
+            # 如果是主进程或未使用DDP，更新进度条显示
+            if ddp:
+                if dist.get_rank() == 0:
+                    loop.set_postfix(loss=test_loss / (batch_idx + 1), acc=100. * correct / total)
+            else:
                 loop.set_postfix(loss=test_loss / (batch_idx + 1), acc=100. * correct / total)
 
-        if dist.get_rank() == 0:
-            writer.add_scalar('Test/loss', test_loss / (batch_idx + 1), epoch)
-            writer.add_scalar('Test/acc', 100. * correct / total, epoch)
-            writer.flush()
+        # 如果是主进程或未使用DDP，记录测试损失和准确率到TensorBoard
+        if ddp and dist.get_rank() != 0:
+            return
+
+        writer.add_scalar('Test/loss', test_loss / (batch_idx + 1), epoch)
+        writer.add_scalar('Test/acc', 100. * correct / total, epoch)
+        writer.flush()  # 刷新TensorBoard日志
