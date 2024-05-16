@@ -337,7 +337,8 @@ def train(
         # 更新网络参数
         optimizer.step()
         # 更新学习率
-        schedule.step()
+        if schedule is not None:
+            schedule.step()
 
         # 更新训练过程的统计量
         train_loss += loss.item()
@@ -358,7 +359,8 @@ def train(
             target_embeds = torch.cat((target_embeds, targets.data.clone().cpu()), 0)
 
     # 记录当前学习率
-    writer.add_scalar('lr', schedule.get_last_lr()[0], epoch)
+    if schedule is not None:
+        writer.add_scalar('lr', schedule.get_last_lr()[0], epoch)
 
     # 如果是主进程，记录训练细节到TensorBoard
     if ddp:
