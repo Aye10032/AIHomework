@@ -1,8 +1,6 @@
-import os
+import argparse
 
 import torch
-import torch.distributed as dist
-from torch import nn, Tensor
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import (
     Compose,
@@ -10,7 +8,6 @@ from torchvision.transforms import (
     RandomResizedCrop,
     CenterCrop,
     RandomHorizontalFlip,
-    RandomRotation,
     ToTensor,
     Normalize
 )
@@ -20,7 +17,7 @@ from torch.utils.data import DataLoader
 from VitModel import ViT, train, test
 
 
-def load_data():
+def load_data(ddp: bool = False):
     trans_train = Compose([
         RandomResizedCrop(224),
         RandomHorizontalFlip(),
@@ -32,7 +29,8 @@ def load_data():
     ])
 
     trans_valid = Compose([
-        Resize(224),
+        Resize(256),
+        CenterCrop(224),
         ToTensor(),
         Normalize(
             mean=[0.485, 0.456, 0.406],
@@ -43,32 +41,44 @@ def load_data():
     train_set = CIFAR100(root='./cifar100', train=True, download=True, transform=trans_train)
     test_set = CIFAR100(root='./cifar100', train=False, download=False, transform=trans_valid)
 
-    train_sample = torch.utils.data.distributed.DistributedSampler(train_set)
-    test_sample = torch.utils.data.distributed.DistributedSampler(test_set)
+    if ddp:
+        train_sampler = torch.utils.data.distributed.DistributedSampler(train_set)
+        test_sampler = torch.utils.data.distributed.DistributedSampler(test_set)
 
-    train_loader = DataLoader(train_set, batch_size=256, shuffle=False, num_workers=2, sampler=train_sample)
-    test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=2, sampler=test_sample)
+        train_loader = DataLoader(train_set, batch_size=256, shuffle=False, num_workers=4, sampler=train_sampler)
+        test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=4, sampler=test_sampler)
+    else:
+        train_loader = DataLoader(train_set, batch_size=256, shuffle=True, num_workers=4)
+        test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=4)
 
     return train_loader, test_loader
 
 
 def main() -> None:
-    dist.init_process_group(backend="nccl")
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dim', type=int, default=512)
+    parser.add_argument('--layers', type=int, default=7)
+    parser.add_argument('--heads', type=int, default=7)
+    parser.add_argument('--hidden_size', type=int, default=72)
+    parser.add_argument('--mlp_size', type=int, default=256)
+    parser.add_argument('--gpu_index', type=int, default=0)
+    parser.add_argument('--ddp', action='store_true', default=False)
+    parser.add_argument('--scheduler', action='store_true', default=False)
 
-    lr = 2 * 1e-4
+    args = parser.parse_args()
+
+    gpu_index = args.gpu_index
+    lr = 1e-4
     max_epoch = 500
-    dim = 512
-    layers = 8
-    heads = 8
-    hidden_size = 72
-    mlp_size = 256
+    dim = args.dim
+    layers = args.layers
+    heads = args.heads
+    hidden_size = args.hidden_size
+    mlp_size = args.mlp_size
 
-    train_loader, test_loader = load_data()
+    train_loader, test_loader = load_data(args.ddp)
 
-    local_rank = torch.distributed.get_rank()
-    torch.cuda.set_device(local_rank)
-    device = torch.device("cuda", local_rank)
+    device = torch.device("cuda", gpu_index)
 
     net = ViT(
         image_size=(224, 224),
@@ -79,14 +89,17 @@ def main() -> None:
         heads=heads,
         hidden_size=hidden_size,
         mlp_size=mlp_size,
-        dropout=0.1,
-        emb_dropout=0.1,
+        dropout=0,
+        emb_dropout=0,
         device=[device]
     )
-    ddp_net = nn.parallel.DistributedDataParallel(net, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
-    optimizer = torch.optim.Adam(ddp_net.parameters(), lr=lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epoch * len(train_loader), eta_min=1e-5)
-    writer = SummaryWriter(log_dir=f'runs/cif100_lr{lr}_head{heads}_layer{layers}_dim{dim}_ep500')
+    optimizer = torch.optim.Adam(net.parameters(), lr=lr)
+    if args.scheduler:
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epoch * len(train_loader), eta_min=1e-5)
+    else:
+        scheduler = None
+
+    writer = SummaryWriter(log_dir=f'runs/cif100_head{heads}_layer{layers}_dim{dim}_hidden{hidden_size}_mlp{mlp_size}')
 
     with torch.no_grad():
         tensor = torch.rand(1, 3, 224, 224).to(device)
@@ -98,7 +111,7 @@ def main() -> None:
         if i % 5 == 0:
             test(net, [device], i, test_loader, writer)
 
-        if i % 50 == 0 and i != 0 and local_rank == 0:
+        if i % 50 == 0 and i != 0:
             torch.save(net.state_dict(), f'models/cif100_head{heads}_layer{layers}_dim{dim}_ep{i}.pth')
 
 
