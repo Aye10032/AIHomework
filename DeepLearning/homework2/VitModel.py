@@ -302,8 +302,8 @@ def train(
     correct = 0
     total = 0
     # 初始化用于TensorBoard嵌入展示的张量
-    output_embed = torch.empty((0, 10))
-    target_embeds = torch.empty(0)
+    # output_embed = torch.empty((0, 10))
+    # target_embeds = torch.empty(0)
 
     # 如果使用分布式数据并行，更新训练数据采样器的epoch
     if ddp:
@@ -354,9 +354,9 @@ def train(
             loop.set_postfix(loss=train_loss / (batch_idx + 1), acc=100. * correct / total)
 
         # 前几个批次，收集输出和目标以用于TensorBoard的嵌入展示
-        if batch_idx <= 3:
-            output_embed = torch.cat((output_embed, outputs.clone().cpu()), 0)
-            target_embeds = torch.cat((target_embeds, targets.data.clone().cpu()), 0)
+        # if batch_idx <= 3:
+        #     output_embed = torch.cat((output_embed, outputs.clone().cpu()), 0)
+        #     target_embeds = torch.cat((target_embeds, targets.data.clone().cpu()), 0)
 
     # 记录当前学习率
     if schedule is not None:
@@ -368,13 +368,13 @@ def train(
             return
 
     # 每隔一定轮次，记录嵌入到TensorBoard
-    if epoch % 9 == 0:
-        writer.add_embedding(
-            output_embed,
-            metadata=target_embeds,
-            global_step=epoch + 1,
-            tag='cifar10'
-        )
+    # if epoch % 9 == 0:
+    #     writer.add_embedding(
+    #         output_embed,
+    #         metadata=target_embeds,
+    #         global_step=epoch + 1,
+    #         tag='cifar10'
+    #     )
 
     # 记录训练损失和准确率
     writer.add_scalar('Train/loss', train_loss / (batch_idx + 1), epoch)
