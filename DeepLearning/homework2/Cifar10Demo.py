@@ -10,6 +10,7 @@ from torchvision.transforms import (
     RandomHorizontalFlip,
     RandomVerticalFlip,
     ElasticTransform,
+    RandomRotation,
     ToTensor,
     Normalize
 )
@@ -21,10 +22,9 @@ from VitModel import ViT, train, test
 
 def load_data(ddp: bool = False):
     trans_train = Compose([
-        ElasticTransform(),
         RandomResizedCrop(224),
         RandomHorizontalFlip(),
-        RandomVerticalFlip(),
+        RandomRotation(15),
         ToTensor(),
         Normalize(
             mean=[0.485, 0.456, 0.406],

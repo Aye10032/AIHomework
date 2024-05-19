@@ -31,5 +31,5 @@ torch::Tensor active_sigmoid_mlu(torch::Tensor x) {
 }
 
 PYBIND11_MODULE(libmlu_custom_ext, m) {
-  m.def("active_sigmoid_mlu", &active_sigmoid_mlu);
+  m.def("active_sigmoid_mlu", &);
 }
