@@ -4,13 +4,6 @@
 __nram__ char NRAM_BUFFER[MAX_NRAM_SIZE];
 
 template<typename T>
-__mlu_device__ void bang_sigmoid(T* output, const T* input,const int size) {
-    for (int i = 0; i < size; ++i) {
-        output[i] = 1 / (1 + exp(-input[i]));
-    }
-}
-
-template<typename T>
 __mlu_global__ void bang_sigmoid_kernel(T *d_dst, T *d_src, int N) {
   const int NRAM_LIMIT_SIZE = FLOOR_ALIGN(MAX_NRAM_SIZE / 2, 64);
   int nram_limit = NRAM_LIMIT_SIZE / sizeof(T);
@@ -32,7 +25,7 @@ __mlu_global__ void bang_sigmoid_kernel(T *d_dst, T *d_src, int N) {
     __memcpy_async(nram_in, d_input_per_task + i * nram_limit, NRAM_LIMIT_SIZE, GDRAM2NRAM);
     __sync_io();
     // TODO: 请补充BANG的sigmoid函数
-    bang_sigmoid(nram_out, nram_in, nram_limit);
+    __bang_active_sigmoid(nram_out, nram_in, nram_limit);
     __sync_compute();
 
     // TODO: 请补充拷贝方向
@@ -44,7 +37,7 @@ __mlu_global__ void bang_sigmoid_kernel(T *d_dst, T *d_src, int N) {
     __memcpy_async(nram_in, d_input_per_task + i * nram_limit, rem * sizeof(T), GDRAM2NRAM);
     __sync_io();
     // TODO: 请补充BANG的sigmoid函数
-    bang_sigmoid(nram_out, nram_in, align_rem);
+    __bang_active_sigmoid(nram_out, nram_in, align_rem);
     __sync_compute();
     // TODO: 请补充拷贝方向
     __memcpy_async(d_output_per_task + i * nram_limit, nram_out, rem * sizeof(T), NRAM2GDRAM);
