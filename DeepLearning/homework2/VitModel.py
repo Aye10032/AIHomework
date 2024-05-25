@@ -1,11 +1,15 @@
 import os
 
+import numpy as np
 import torch
-import torch.distributed as dist
+from accelerate import Accelerator
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
 import torch.nn as nn
+import seaborn as sns
+from evaluate import CombinedEvaluations, EvaluationModule
+from matplotlib import pyplot as plt
 from torch import Tensor
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -95,7 +99,6 @@ class Transformer(nn.Module):
             heads: int,
             hidden_size: int,
             mlp_size: int,
-            device: list[torch.device],
             dropout: float = 0.,
     ):
         """
@@ -110,27 +113,16 @@ class Transformer(nn.Module):
         """
         super(Transformer, self).__init__()
 
-        self.device = device
         self.layers = nn.ModuleList([])
-        self.norm = nn.LayerNorm(dim).to(device[-1])
-
-        self.change_layer = layers // 2
+        self.norm = nn.LayerNorm(dim)
 
         for index in range(layers):
-            if index <= self.change_layer:
-                self.layers.append(
-                    nn.ModuleList([
-                        Attention(dim, heads=heads, dim_head=hidden_size, dropout=dropout),
-                        FeedForward(dim, mlp_size, dropout=dropout)
-                    ]).to(device[0])
-                )
-            else:
-                self.layers.append(
-                    nn.ModuleList([
-                        Attention(dim, heads=heads, dim_head=hidden_size, dropout=dropout),
-                        FeedForward(dim, mlp_size, dropout=dropout)
-                    ]).to(device[-1])
-                )
+            self.layers.append(
+                nn.ModuleList([
+                    Attention(dim, heads=heads, dim_head=hidden_size, dropout=dropout),
+                    FeedForward(dim, mlp_size, dropout=dropout)
+                ])
+            )
 
     def forward(self, x: Tensor):
         """
@@ -140,11 +132,9 @@ class Transformer(nn.Module):
         :return: 处理后的张量。
         """
 
-        for index, (attn, ff) in enumerate(self.layers):
+        for attn, ff in self.layers:
             x = attn(x)
             x = ff(x) + x
-            if index == self.change_layer:
-                x = x.to(self.device[-1])
         return self.norm(x)
 
 
@@ -163,7 +153,6 @@ class ViT(nn.Module):
             heads: int,
             hidden_size: int,
             mlp_size: int,
-            device: list[torch.device] = None,
             pool: str = 'cls',
             channels: int = 3,
             dropout: float = 0.,
@@ -200,32 +189,27 @@ class ViT(nn.Module):
         # 确保池化方法的有效性
         assert pool in {'cls', 'mean'}, 'err pool type'
 
-        if device is None:
-            self.device = [torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')]
-        else:
-            self.device = device
-
         # 定义从图像到patch嵌入的转换过程
         self.to_patch_embedding = nn.Sequential(
             Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=patch_height, p2=patch_width),
             nn.LayerNorm(patch_dim),
             nn.Linear(patch_dim, dim),
             nn.LayerNorm(dim)
-        ).to(device[0])
+        )
 
         # 初始化位置嵌入和分类token
-        self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim).to(device[0]))
-        self.cls_token = nn.Parameter(torch.randn(1, 1, dim).to(device[0]))
-        self.dropout = nn.Dropout(emb_dropout).to(device[0])
+        self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
+        self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
+        self.dropout = nn.Dropout(emb_dropout)
 
         # 初始化Transformer编码器
-        self.transform = Transformer(dim, layers, heads, hidden_size, mlp_size, device, dropout)
+        self.transform = Transformer(dim, layers, heads, hidden_size, mlp_size, dropout)
 
         self.pool = pool
-        self.to_latent = nn.Identity().to(self.device[-1])
+        self.to_latent = nn.Identity()
 
         # 定义最终的线性分类器
-        self.mlp_head = nn.Linear(dim, num_classes).to(self.device[-1])
+        self.mlp_head = nn.Linear(dim, num_classes)
 
     def forward(self, img: Tensor):
         """
@@ -274,11 +258,11 @@ def train(
         net: nn.Module,
         optimizer: torch.optim.Optimizer,
         schedule: torch.optim.lr_scheduler.CosineAnnealingLR,
-        device: list[torch.device],
+        accelerator: Accelerator,
         epoch: int,
         train_loader: DataLoader,
         writer: SummaryWriter,
-        ddp: bool = False
+        metric: EvaluationModule
 ):
     """
     训练给定的网络模型。
@@ -286,11 +270,11 @@ def train(
     :param net: 要训练的网络，继承自nn.Module。
     :param optimizer: 用于优化网络参数的优化器，来自torch.optim。
     :param schedule: 学习率调度器，用于动态调整学习率，此处为CosineAnnealingLR。
-    :param device: 指定训练时使用的设备列表。
+    :param accelerator: 分布式计算对象
     :param epoch: 当前训练的轮次。
     :param train_loader: 训练数据的加载器，来自torch.utils.data.DataLoader。
     :param writer: 用于记录训练过程数据的SummaryWriter，常用于TensorBoard。
-    :param ddp: 是否使用分布式数据并行训练，默认为False。
+    :param metric: 模型评估pipline
     :return: 无返回值。
     """
     # 初始化损失函数
@@ -298,157 +282,118 @@ def train(
     # 将网络设置为训练模式
     net.train()
     # 初始化训练过程的损失和正确率等统计
-    train_loss = 0
-    correct = 0
-    total = 0
-    # 初始化用于TensorBoard嵌入展示的张量
-    # output_embed = torch.empty((0, 10))
-    # target_embeds = torch.empty(0)
-
-    # 如果使用分布式数据并行，更新训练数据采样器的epoch
-    if ddp:
-        train_loader.sampler.set_epoch(epoch)
-
-        # 设置进度条，用于显示训练进度和性能指标
-        if dist.get_rank() == 0:
-            loop = tqdm(enumerate(train_loader), total=len(train_loader), desc=f'Epoch {epoch}')
-        else:
-            loop = enumerate(train_loader)
-    else:
-        loop = tqdm(enumerate(train_loader), total=len(train_loader), desc=f'Epoch {epoch}')
+    train_loss = []
 
     # 开始训练循环
-    for batch_idx, (inputs, targets) in loop:
+    for batch_idx, (inputs, targets) in tqdm(
+            enumerate(train_loader),
+            total=len(train_loader),
+            desc=f'Epoch {epoch}({accelerator.device})',
+            disable=not accelerator.is_local_main_process
+    ):
         inputs: Tensor
         targets: Tensor
 
-        # 数据移至指定设备
-        inputs, targets = inputs.to(device[0]), targets.to(device[-1])
-        # 清空梯度
         optimizer.zero_grad()
-        # 前向传播
         outputs = net(inputs)
-        # 计算损失
         loss = criterion(outputs, targets)
-        # 反向传播
-        loss.backward()
-        # 执行特定的稀疏选择操作
+
+        accelerator.backward(loss)
         sparse_selection(net)
-        # 更新网络参数
         optimizer.step()
-        # 更新学习率
+
         if schedule is not None:
             schedule.step()
 
-        # 更新训练过程的统计量
-        train_loss += loss.item()
+        train_loss.append(loss.item())
         _, predicted = outputs.max(1)
-        total += targets.size(0)
-        correct += predicted.eq(targets).sum().item()
 
-        # 如果是主进程，则更新进度条显示
-        if ddp:
-            if dist.get_rank() == 0:
-                loop.set_postfix(loss=train_loss / (batch_idx + 1), acc=100. * correct / total)
-        else:
-            loop.set_postfix(loss=train_loss / (batch_idx + 1), acc=100. * correct / total)
+        global_predictions, global_targets = accelerator.gather_for_metrics((predicted, targets))
+        metric.add_batch(predictions=global_predictions, references=global_targets)
 
-        # 前几个批次，收集输出和目标以用于TensorBoard的嵌入展示
-        # if batch_idx <= 3:
-        #     output_embed = torch.cat((output_embed, outputs.clone().cpu()), 0)
-        #     target_embeds = torch.cat((target_embeds, targets.data.clone().cpu()), 0)
+    global_train_loss = accelerator.gather_for_metrics(train_loss)
 
-    # 记录当前学习率
-    if schedule is not None:
-        writer.add_scalar('lr', schedule.get_last_lr()[0], epoch)
+    accelerator.wait_for_everyone()
+    if accelerator.is_local_main_process:
+        result = metric.compute()
 
-    # 如果是主进程，记录训练细节到TensorBoard
-    if ddp:
-        if dist.get_rank() != 0:
-            return
+        if schedule is not None:
+            writer.add_scalar('lr', schedule.get_last_lr()[0], epoch)
 
-    # 每隔一定轮次，记录嵌入到TensorBoard
-    # if epoch % 9 == 0:
-    #     writer.add_embedding(
-    #         output_embed,
-    #         metadata=target_embeds,
-    #         global_step=epoch + 1,
-    #         tag='cifar10'
-    #     )
+        writer.add_scalar('Train/loss', np.mean(global_train_loss), epoch)
+        writer.add_scalar('Train/acc', 100. * result['accuracy'], epoch)
 
-    # 记录训练损失和准确率
-    writer.add_scalar('Train/loss', train_loss / (batch_idx + 1), epoch)
-    writer.add_scalar('Train/acc', 100. * correct / total, epoch)
-
-    # 记录每层参数的直方图
-    for name, param in net.named_parameters():
-        layer, attr = os.path.splitext(name)
-        attr = attr[1:]
-        writer.add_histogram('{}/{}'.format(layer, attr), param.clone().cpu().data.numpy(), epoch)
-
-    # 刷新writer，确保数据写入
-    writer.flush()
+        writer.flush()
 
 
 def test(
         net: nn.Module,
-        device: list[torch.device],
+        accelerator: Accelerator,
         epoch: int,
         test_loader: DataLoader,
         writer: SummaryWriter,
-        ddp: bool = False
+        metric: CombinedEvaluations,
+        _labels: list
 ):
     """
     测试给定网络的性能。
 
     :param net: 要测试的网络，是一个nn.Module的子类。
-    :param device: 用于测试的设备列表，第一个设备用于加载数据，最后一个设备用于计算。
+    :param accelerator: 分布式计算对象
     :param epoch: 当前的训练轮次，用于记录测试结果。
     :param test_loader: 测试数据集的数据加载器。
     :param writer: 用于写入TensorBoard日志的SummaryWriter对象。
-    :param ddp: 是否使用分布式数据并行训练。默认为False。
+    :param metric: 模型评估pipline
+    :param _labels: 类别的标签，用于可视化
     :return: 无返回值。
     """
-    criterion = nn.CrossEntropyLoss()  # 定义损失函数
-    net.eval()  # 将网络设置为评估模式
-    test_loss = 0  # 初始化测试损失
-    correct = 0  # 初始化正确预测数
-    total = 0  # 初始化总预测数
-    with torch.no_grad():  # 禁止计算梯度
-        # 根据是否使用DDP和当前进程排名，选择不同的进度条更新方式
-        if ddp:
-            if dist.get_rank() == 0:
-                loop = tqdm(enumerate(test_loader), total=len(test_loader), desc=f'Test {epoch}')
-            else:
-                loop = enumerate(test_loader)
-        else:
-            loop = tqdm(enumerate(test_loader), total=len(test_loader), desc=f'Test {epoch}')
 
-        for batch_idx, (inputs, targets) in loop:
+    criterion = nn.CrossEntropyLoss()
+
+    net.eval()  # 将网络设置为评估模式
+    test_loss = []
+    with torch.no_grad():  # 禁止计算梯度
+        for batch_idx, (inputs, targets) in tqdm(
+                enumerate(test_loader),
+                total=len(test_loader),
+                desc=f'Test {epoch}({accelerator.device})',
+                disable=not accelerator.is_local_main_process
+        ):
             inputs: Tensor
             targets: Tensor
 
-            # 数据移动到指定设备
-            inputs, targets = inputs.to(device[0]), targets.to(device[-1])
+            # inputs, targets = inputs.to(accelerator.device), targets.to(accelerator.device)
+
             outputs = net(inputs)  # 网络前向传播
-            loss = criterion(outputs, targets)  # 计算损失
 
-            test_loss += loss.item()  # 累加测试损失
-            _, predicted = outputs.max(1)  # 获取预测类别
-            total += targets.size(0)  # 累加总样本数
-            correct += predicted.eq(targets).sum().item()  # 累加正确预测数
+            loss = criterion(outputs, targets)
 
-            # 如果是主进程或未使用DDP，更新进度条显示
-            if ddp:
-                if dist.get_rank() == 0:
-                    loop.set_postfix(loss=test_loss / (batch_idx + 1), acc=100. * correct / total)
-            else:
-                loop.set_postfix(loss=test_loss / (batch_idx + 1), acc=100. * correct / total)
+            test_loss.append(loss.item())
+            _, predicted = outputs.max(1)
 
-        # 如果是主进程或未使用DDP，记录测试损失和准确率到TensorBoard
-        if ddp and dist.get_rank() != 0:
-            return
+            global_predictions, global_targets = accelerator.gather_for_metrics((predicted, targets))
+            metric.add_batch(predictions=global_predictions, references=global_targets)
 
-        writer.add_scalar('Test/loss', test_loss / (batch_idx + 1), epoch)
-        writer.add_scalar('Test/acc', 100. * correct / total, epoch)
-        writer.flush()  # 刷新TensorBoard日志
+        global_test_loss = accelerator.gather_for_metrics(test_loss)
+
+        accelerator.wait_for_everyone()
+        if accelerator.is_local_main_process:
+            result = metric.compute()
+
+            writer.add_scalar('Test/loss', np.mean(global_test_loss), epoch)
+            writer.add_scalar('Test/acc', 100. * result['accuracy'], epoch)
+
+            fig, ax = plt.subplots()
+            sns.heatmap(
+                np.array(result['confusion_matrix']),
+                annot=True,
+                cmap='Blues',
+                fmt='d',
+                xticklabels=_labels,
+                yticklabels=_labels,
+                ax=ax
+            )
+            ax.set_xlabel('Predicted label')
+            ax.set_ylabel('True label')
+            writer.add_figure('', fig, epoch)
+            writer.flush()
