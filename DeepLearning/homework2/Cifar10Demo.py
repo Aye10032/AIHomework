@@ -69,8 +69,8 @@ def main() -> None:
 
     labels = test_set.classes
 
-    train_loader = DataLoader(train_set, batch_size=256, shuffle=True, num_workers=2)
-    test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=2)
+    train_loader = DataLoader(train_set, batch_size=256, shuffle=True, num_workers=4)
+    test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=4)
 
     net = ViT(
         image_size=(224, 224),

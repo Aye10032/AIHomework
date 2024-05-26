@@ -9,11 +9,15 @@ from einops.layers.torch import Rearrange
 import torch.nn as nn
 import seaborn as sns
 from evaluate import CombinedEvaluations, EvaluationModule
-from matplotlib import pyplot as plt
 from torch import Tensor
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+
+import matplotlib
+
+matplotlib.use('Agg')
+from matplotlib import pyplot as plt
 
 
 class Attention(nn.Module):
@@ -396,4 +400,6 @@ def test(
             ax.set_xlabel('Predicted label')
             ax.set_ylabel('True label')
             writer.add_figure('', fig, epoch)
+            plt.close()
+
             writer.flush()
