@@ -10,6 +10,7 @@ from torchvision.transforms import (
     CenterCrop,
     RandomHorizontalFlip,
     RandomRotation,
+    ColorJitter,
     ToTensor,
     Normalize
 )
@@ -25,9 +26,8 @@ def main() -> None:
     parser.add_argument('--dim', type=int, default=512)
     parser.add_argument('--layers', type=int, default=7)
     parser.add_argument('--heads', type=int, default=8)
-    parser.add_argument('--hidden_size', type=int, default=64)
-    parser.add_argument('--mlp_size', type=int, default=128)
-    parser.add_argument('--gpu_index', type=int, default=0)
+    parser.add_argument('--hidden_size', type=int, default=72)
+    parser.add_argument('--mlp_size', type=int, default=256)
     parser.add_argument('--scheduler', action='store_true', default=False)
 
     args = parser.parse_args()
@@ -36,7 +36,7 @@ def main() -> None:
     accelerator = Accelerator(dataloader_config=dataloader_config)
 
     lr = 1e-4
-    max_epoch = 500
+    max_epoch = 900
     dim = args.dim
     layers = args.layers
     heads = args.heads
@@ -46,7 +46,8 @@ def main() -> None:
     trans_train = Compose([
         RandomResizedCrop(224),
         RandomHorizontalFlip(),
-        RandomRotation(15),
+        RandomRotation(45),
+        ColorJitter(0.5, 0.5, 0.5),
         ToTensor(),
         Normalize(
             mean=[0.485, 0.456, 0.406],
@@ -92,12 +93,16 @@ def main() -> None:
     optimizer = torch.optim.Adam(net.parameters(), lr=lr)
     optimizer = accelerator.prepare_optimizer(optimizer)
     if args.scheduler:
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epoch * len(train_loader), eta_min=1e-5)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            T_max=450 * len(train_loader),
+            eta_min=1e-5
+        )
         scheduler = accelerator.prepare_scheduler(scheduler)
     else:
         scheduler = None
 
-    writer = SummaryWriter(log_dir=f'more/cif10_head{heads}_layer{layers}_dim{dim}_hidden{hidden_size}_mlp{mlp_size}')
+    writer = SummaryWriter(log_dir=f'runs/cif10_head{heads}_layer{layers}_dim{dim}_hidden{hidden_size}_mlp{mlp_size}_{max_epoch}')
     train_metric = evaluate.load('accuracy')
     test_metric = evaluate.combine(['accuracy', 'confusion_matrix'])
 
