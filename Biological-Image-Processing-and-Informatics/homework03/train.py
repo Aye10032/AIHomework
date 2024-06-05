@@ -166,17 +166,15 @@ def main():
                               nesterov=config['nesterov'], weight_decay=config['weight_decay'])
 
     elif config['optimizer'] == 'Adam':
-        # to do: complete the Adam code
-        raise NotImplementedError
+        optimizer = optim.Adam(params, lr=config['lr'], weight_decay=config['weight_decay'])
     elif config['optimizer'] == 'AdamW':
-        # to do: complete the AdamW code
-        raise NotImplementedError
+        optimizer = optim.AdamW(params, lr=config['lr'], weight_decay=config['weight_decay'])
     elif config['optimizer'] == 'RMSProp':
-        # to do: complete the RMSProp code
-        raise NotImplementedError
+        optimizer = optim.RMSprop(params, lr=config['lr'], weight_decay=config['weight_decay'], momentum=config['momentum'])
     else:
-        raise NotImplementedError
+        optimizer = optim.Adam(params, lr=config['lr'], weight_decay=config['weight_decay'])
     # 根据配置参数config中的学习率调度器类型和参数设置创建学习率调度器对象scheduler：
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config['epochs'], eta_min=1e-4)
 
     if config['dataset'] == 'ER':
         train_num, val_num, test_num = 157, 28, 38
