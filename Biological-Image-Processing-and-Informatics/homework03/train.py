@@ -72,7 +72,7 @@ def parse_args():
 
 
 # 定义训练过程。使用训练数据集进行训练，计算损失函数和评估指标，并更新模型参数。
-def train(train_loader, model, criterion, optimizer, scheduler):
+def train(train_loader, model, criterion, optimizer):
     # 初始化平均指标（损失和dice）的AverageMeter对象
     avg_meters = {'loss': AverageMeter(),
                   'dice': AverageMeter()}
@@ -91,7 +91,6 @@ def train(train_loader, model, criterion, optimizer, scheduler):
         output = model(input)
 
         loss = criterion(output, target)
-        scheduler.step(loss)
         # To do: you should change more metric to evaluate the results, including DICE, dice, Hausdorff Distance
         dice = dice_coef(output > 0.5, target)
 
@@ -176,7 +175,7 @@ def main():
     else:
         optimizer = optim.Adam(params, lr=config['lr'], weight_decay=config['weight_decay'])
     # 根据配置参数config中的学习率调度器类型和参数设置创建学习率调度器对象scheduler：
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.8, patience=5)
 
     if config['dataset'] == 'ER':
         train_num, val_num, test_num = 157, 28, 38
@@ -245,25 +244,32 @@ def main():
         ('val_loss', []),
         ('val_dice', []),
     ])
-    writer = SummaryWriter(log_dir='runs/')
+    writer = SummaryWriter(log_dir=f"runs/{config['dataset']}_{config['optimizer']}_lr{config['lr']}_{config['loss']}")
 
     best_dice = 0
     trigger = 0  # 计数器
 
     with torch.no_grad():
         test_data = next(iter(train_loader))
-        writer.add_graph(model, test_data)
+        writer.add_graph(model, test_data[0].cuda())
 
     for epoch in range(config['epochs']):
         print('Epoch [%d/%d]' % (epoch, config['epochs']))
 
         # train for one epoch
-        train_log = train(train_loader, model, criterion, optimizer, scheduler)
+        train_log = train(train_loader, model, criterion, optimizer)
+        scheduler.step(train_log['loss'])
         # evaluate on validation set
         val_log = validate(val_loader, model, criterion)
 
         print('loss %.4f - dice %.4f - val_loss %.4f - val_dice %.4f'
               % (train_log['loss'], train_log['dice'], val_log['loss'], val_log['dice']))
+        writer.add_scalar('lr', scheduler.get_last_lr()[0], epoch)
+        writer.add_scalar('train/loss', train_log['loss'], epoch)
+        writer.add_scalar('train/dice', train_log['dice'], epoch)
+        writer.add_scalar('valid/loss', val_log['loss'], epoch)
+        writer.add_scalar('valid/dice', val_log['dice'], epoch)
+        writer.flush()
 
         log['epoch'].append(epoch)
         log['lr'].append(config['lr'])
