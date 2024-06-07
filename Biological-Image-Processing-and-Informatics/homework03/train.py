@@ -165,7 +165,6 @@ def main():
     if config['optimizer'] == 'SGD':
         optimizer = optim.SGD(params, lr=config['lr'], momentum=config['momentum'],
                               nesterov=config['nesterov'], weight_decay=config['weight_decay'])
-
     elif config['optimizer'] == 'Adam':
         optimizer = optim.Adam(params, lr=config['lr'], weight_decay=config['weight_decay'])
     elif config['optimizer'] == 'AdamW':
@@ -175,7 +174,7 @@ def main():
     else:
         optimizer = optim.Adam(params, lr=config['lr'], weight_decay=config['weight_decay'])
     # 根据配置参数config中的学习率调度器类型和参数设置创建学习率调度器对象scheduler：
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.8, patience=5)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.8, patience=5)
 
     if config['dataset'] == 'ER':
         train_num, val_num, test_num = 157, 28, 38
@@ -258,7 +257,7 @@ def main():
 
         # train for one epoch
         train_log = train(train_loader, model, criterion, optimizer)
-        scheduler.step(train_log['loss'])
+        scheduler.step(train_log['dice'])
         # evaluate on validation set
         val_log = validate(val_loader, model, criterion)
 
