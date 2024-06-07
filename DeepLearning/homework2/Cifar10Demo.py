@@ -93,27 +93,28 @@ def main() -> None:
     optimizer = torch.optim.Adam(net.parameters(), lr=lr)
     optimizer = accelerator.prepare_optimizer(optimizer)
     if args.scheduler:
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
-            T_max=450 * len(train_loader),
-            eta_min=1e-5
+            mode='max',
+            factor=0.9,
+            patience=10,
+            cooldown=0
         )
         scheduler = accelerator.prepare_scheduler(scheduler)
     else:
         scheduler = None
 
-    writer = SummaryWriter(log_dir=f'runs/cif10_head{heads}_layer{layers}_dim{dim}_hidden{hidden_size}_mlp{mlp_size}_{max_epoch}')
+    model_name = f'cif10_head{heads}_layer{layers}_dim{dim}_hidden{hidden_size}_mlp{mlp_size}_{max_epoch}+'
+    writer = SummaryWriter(log_dir=f'runs/{model_name}')
     train_metric = evaluate.load('accuracy')
     test_metric = evaluate.combine(['accuracy', 'confusion_matrix'])
 
+    best_acc = 0.
     for i in range(max_epoch):
         train(net, optimizer, scheduler, accelerator, i, train_loader, writer, train_metric)
 
         if i % 5 == 0:
-            test(net, accelerator, i, test_loader, writer, test_metric, labels)
-
-        # if i % 50 == 0 and i != 0:
-        #     torch.save(net.state_dict(), f'models/cif10_head{heads}_layer{layers}_dim{dim}_ep{i}.pth')
+            best_acc = test(net, accelerator, i, test_loader, writer, test_metric, best_acc, labels, model_name)
 
 
 if __name__ == '__main__':
