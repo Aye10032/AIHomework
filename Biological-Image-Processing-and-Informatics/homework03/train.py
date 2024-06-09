@@ -18,7 +18,7 @@ import losses
 from dataset import Dataset
 from model import UNet
 from utils import AverageMeter, str2bool
-from utils import dice_coef, acc_coef, iou_coef, sensitivity_coef, specificity_coef
+from utils import dice_coef, acc_coef, iou_coef, sensitivity_coef, specificity_coef, hausdorff_distance_coef
 
 LOSS_NAMES = losses.__all__
 LOSS_NAMES.append(['BCELoss', 'DICELoss', 'IoULoss'])
@@ -80,7 +80,8 @@ def train(train_loader, model, criterion, optimizer):
         'acc': AverageMeter(),
         'iou': AverageMeter(),
         'sensitivity': AverageMeter(),
-        'specificity': AverageMeter()
+        'specificity': AverageMeter(),
+        'hausdorff_distance': AverageMeter()
     }
     # 将模型设置为训练模式
     model.train()
@@ -103,6 +104,7 @@ def train(train_loader, model, criterion, optimizer):
         iou = iou_coef(output > 0.5, target)
         sensitivity = sensitivity_coef(output > 0.5, target)
         specificity = specificity_coef(output > 0.5, target)
+        hausdorff_distance = hausdorff_distance_coef(output > 0.5, target)
 
         # compute gradient and do optimizing step
         optimizer.zero_grad()  # 梯度清零
@@ -115,6 +117,7 @@ def train(train_loader, model, criterion, optimizer):
         avg_meters['iou'].update(iou, input.size(0))
         avg_meters['sensitivity'].update(sensitivity, input.size(0))
         avg_meters['specificity'].update(specificity, input.size(0))
+        avg_meters['hausdorff_distance'].update(hausdorff_distance, input.size(0))
         # 根据当前训练进度，更新并显示进度条的后缀信息，包括平均损失和平均dice
         postfix = OrderedDict([
             ('loss', avg_meters['loss'].avg),
@@ -131,6 +134,7 @@ def train(train_loader, model, criterion, optimizer):
         ('iou', avg_meters['iou'].avg),
         ('sensitivity', avg_meters['sensitivity'].avg),
         ('specificity', avg_meters['specificity'].avg),
+        ('hausdorff_distance', avg_meters['hausdorff_distance'].avg)
     ])
 
 
@@ -141,7 +145,8 @@ def validate(val_loader, model, criterion):
         'acc': AverageMeter(),
         'iou': AverageMeter(),
         'sensitivity': AverageMeter(),
-        'specificity': AverageMeter()
+        'specificity': AverageMeter(),
+        'hausdorff_distance': AverageMeter()
     }
 
     # switch to evaluate mode
@@ -161,6 +166,7 @@ def validate(val_loader, model, criterion):
             iou = iou_coef(output > 0.5, target)
             sensitivity = sensitivity_coef(output > 0.5, target)
             specificity = specificity_coef(output > 0.5, target)
+            hausdorff_distance = hausdorff_distance_coef(output > 0.5, target)
 
             avg_meters['loss'].update(loss.item(), input.size(0))
             avg_meters['dice'].update(dice, input.size(0))
@@ -168,6 +174,7 @@ def validate(val_loader, model, criterion):
             avg_meters['iou'].update(iou, input.size(0))
             avg_meters['sensitivity'].update(sensitivity, input.size(0))
             avg_meters['specificity'].update(specificity, input.size(0))
+            avg_meters['hausdorff_distance'].update(hausdorff_distance, input.size(0))
 
             postfix = OrderedDict([
                 ('loss', avg_meters['loss'].avg),
@@ -184,6 +191,7 @@ def validate(val_loader, model, criterion):
         ('iou', avg_meters['iou'].avg),
         ('sensitivity', avg_meters['sensitivity'].avg),
         ('specificity', avg_meters['specificity'].avg),
+        ('hausdorff_distance', avg_meters['hausdorff_distance'].avg)
     ])
 
 
@@ -236,7 +244,6 @@ def main():
         OneOf([
             transforms.HueSaturationValue(),
             transforms.RandomBrightnessContrast(),
-            transforms.RandomContrast(),
         ], p=1),  # 按照归一化的概率选择执行哪一个
         albu.Resize(config['input_h'], config['input_w']),
 
@@ -310,12 +317,14 @@ def main():
         writer.add_scalar('train/iou', train_log['iou'], epoch)
         writer.add_scalar('train/sensitivity', train_log['sensitivity'], epoch)
         writer.add_scalar('train/specificity', train_log['specificity'], epoch)
+        writer.add_scalar('train/hausdorff_distance', train_log['hausdorff_distance'], epoch)
         writer.add_scalar('valid/loss', val_log['loss'], epoch)
         writer.add_scalar('valid/dice', val_log['dice'], epoch)
         writer.add_scalar('valid/acc', val_log['acc'], epoch)
         writer.add_scalar('valid/iou', val_log['iou'], epoch)
         writer.add_scalar('valid/sensitivity', val_log['sensitivity'], epoch)
         writer.add_scalar('valid/specificity', val_log['specificity'], epoch)
+        writer.add_scalar('valid/hausdorff_distance', val_log['hausdorff_distance'], epoch)
 
         writer.flush()
 

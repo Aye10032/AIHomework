@@ -1,4 +1,5 @@
 import argparse
+
 import torch
 from torch import Tensor
 from torch.types import Number
@@ -7,12 +8,10 @@ from torch.types import Number
 def dice_coef(output, target):
     smooth = 1e-5
 
-    output = output.view(-1).data.cpu().numpy()
-    target = target.view(-1).data.cpu().numpy()
-    intersection = (output * target).sum()
+    intersection = torch.logical_and(output, target).sum()
+    dice = (2. * intersection + smooth) / (output.sum() + target.sum() + smooth)
 
-    return (2. * intersection + smooth) / \
-        (output.sum() + target.sum() + smooth)
+    return dice.item()
 
 
 def iou_coef(output: Tensor, target: Tensor) -> Number:
@@ -62,6 +61,28 @@ def sensitivity_coef(output: Tensor, target: Tensor) -> Number:
     tpr = (tp + smooth) / (tp + fp + smooth)
 
     return tpr.item()
+
+
+def hausdorff_distance_coef(output: Tensor, target: Tensor) -> Number:
+    """
+    计算两张图片的Hausdorff Distance
+
+    :param output: 网络预测值，仅有0或1两个值
+    :param target: 实际掩码，仅有0或1两个值
+    :return: Hausdorff Distance
+    """
+
+    output = output.squeeze(1).float()
+    target = target.squeeze(1).float()
+
+    distance_matrix = torch.cdist(output, target, p=2)
+
+    value1 = distance_matrix.min(2)[0].max(1, keepdim=True)[0]
+    value2 = distance_matrix.min(1)[0].max(1, keepdim=True)[0]
+
+    value = torch.cat((value1, value2), dim=1)
+
+    return value.max(1)[0].mean().item()
 
 
 def str2bool(v):
