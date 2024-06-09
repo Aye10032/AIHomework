@@ -18,7 +18,7 @@ import losses
 from dataset import Dataset
 from model import UNet
 from utils import AverageMeter, str2bool
-from utils import dice_coef
+from utils import dice_coef, acc_coef, iou_coef, sensitivity_coef, specificity_coef
 
 LOSS_NAMES = losses.__all__
 LOSS_NAMES.append(['BCELoss', 'DICELoss', 'IoULoss'])
@@ -74,8 +74,14 @@ def parse_args():
 # 定义训练过程。使用训练数据集进行训练，计算损失函数和评估指标，并更新模型参数。
 def train(train_loader, model, criterion, optimizer):
     # 初始化平均指标（损失和dice）的AverageMeter对象
-    avg_meters = {'loss': AverageMeter(),
-                  'dice': AverageMeter()}
+    avg_meters = {
+        'loss': AverageMeter(),
+        'dice': AverageMeter(),
+        'acc': AverageMeter(),
+        'iou': AverageMeter(),
+        'sensitivity': AverageMeter(),
+        'specificity': AverageMeter()
+    }
     # 将模型设置为训练模式
     model.train()
     # 进度条可视化
@@ -93,6 +99,10 @@ def train(train_loader, model, criterion, optimizer):
         loss = criterion(output, target)
         # To do: you should change more metric to evaluate the results, including DICE, dice, Hausdorff Distance
         dice = dice_coef(output > 0.5, target)
+        acc = acc_coef(output > 0.5, target)
+        iou = iou_coef(output > 0.5, target)
+        sensitivity = sensitivity_coef(output > 0.5, target)
+        specificity = specificity_coef(output > 0.5, target)
 
         # compute gradient and do optimizing step
         optimizer.zero_grad()  # 梯度清零
@@ -101,6 +111,10 @@ def train(train_loader, model, criterion, optimizer):
         # 更新平均指标（损失和dice）的值
         avg_meters['loss'].update(loss.item(), input.size(0))
         avg_meters['dice'].update(dice, input.size(0))
+        avg_meters['acc'].update(acc, input.size(0))
+        avg_meters['iou'].update(iou, input.size(0))
+        avg_meters['sensitivity'].update(sensitivity, input.size(0))
+        avg_meters['specificity'].update(specificity, input.size(0))
         # 根据当前训练进度，更新并显示进度条的后缀信息，包括平均损失和平均dice
         postfix = OrderedDict([
             ('loss', avg_meters['loss'].avg),
@@ -110,13 +124,25 @@ def train(train_loader, model, criterion, optimizer):
         pbar.update(1)
     pbar.close()
 
-    return OrderedDict([('loss', avg_meters['loss'].avg),
-                        ('dice', avg_meters['dice'].avg)])
+    return OrderedDict([
+        ('loss', avg_meters['loss'].avg),
+        ('dice', avg_meters['dice'].avg),
+        ('acc', avg_meters['acc'].avg),
+        ('iou', avg_meters['iou'].avg),
+        ('sensitivity', avg_meters['sensitivity'].avg),
+        ('specificity', avg_meters['specificity'].avg),
+    ])
 
 
 def validate(val_loader, model, criterion):
-    avg_meters = {'loss': AverageMeter(),
-                  'dice': AverageMeter()}
+    avg_meters = {
+        'loss': AverageMeter(),
+        'dice': AverageMeter(),
+        'acc': AverageMeter(),
+        'iou': AverageMeter(),
+        'sensitivity': AverageMeter(),
+        'specificity': AverageMeter()
+    }
 
     # switch to evaluate mode
     model.eval()
@@ -131,9 +157,17 @@ def validate(val_loader, model, criterion):
             output = model(input)
             loss = criterion(output, target)
             dice = dice_coef(output > 0.5, target)
+            acc = acc_coef(output > 0.5, target)
+            iou = iou_coef(output > 0.5, target)
+            sensitivity = sensitivity_coef(output > 0.5, target)
+            specificity = specificity_coef(output > 0.5, target)
 
             avg_meters['loss'].update(loss.item(), input.size(0))
             avg_meters['dice'].update(dice, input.size(0))
+            avg_meters['acc'].update(acc, input.size(0))
+            avg_meters['iou'].update(iou, input.size(0))
+            avg_meters['sensitivity'].update(sensitivity, input.size(0))
+            avg_meters['specificity'].update(specificity, input.size(0))
 
             postfix = OrderedDict([
                 ('loss', avg_meters['loss'].avg),
@@ -143,8 +177,14 @@ def validate(val_loader, model, criterion):
             pbar.update(1)
         pbar.close()
 
-    return OrderedDict([('loss', avg_meters['loss'].avg),
-                        ('dice', avg_meters['dice'].avg)])
+    return OrderedDict([
+        ('loss', avg_meters['loss'].avg),
+        ('dice', avg_meters['dice'].avg),
+        ('acc', avg_meters['acc'].avg),
+        ('iou', avg_meters['iou'].avg),
+        ('sensitivity', avg_meters['sensitivity'].avg),
+        ('specificity', avg_meters['specificity'].avg),
+    ])
 
 
 def main():
@@ -174,7 +214,7 @@ def main():
     else:
         optimizer = optim.Adam(params, lr=config['lr'], weight_decay=config['weight_decay'])
     # 根据配置参数config中的学习率调度器类型和参数设置创建学习率调度器对象scheduler：
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.8, patience=5)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.8, patience=5)
 
     if config['dataset'] == 'ER':
         train_num, val_num, test_num = 157, 28, 38
@@ -195,7 +235,7 @@ def main():
         albu.Flip(),
         OneOf([
             transforms.HueSaturationValue(),
-            transforms.RandomBrightness(),
+            transforms.RandomBrightnessContrast(),
             transforms.RandomContrast(),
         ], p=1),  # 按照归一化的概率选择执行哪一个
         albu.Resize(config['input_h'], config['input_w']),
@@ -257,7 +297,7 @@ def main():
 
         # train for one epoch
         train_log = train(train_loader, model, criterion, optimizer)
-        scheduler.step(train_log['dice'])
+        scheduler.step(train_log['loss'])
         # evaluate on validation set
         val_log = validate(val_loader, model, criterion)
 
@@ -266,8 +306,17 @@ def main():
         writer.add_scalar('lr', scheduler.get_last_lr()[0], epoch)
         writer.add_scalar('train/loss', train_log['loss'], epoch)
         writer.add_scalar('train/dice', train_log['dice'], epoch)
+        writer.add_scalar('train/acc', train_log['acc'], epoch)
+        writer.add_scalar('train/iou', train_log['iou'], epoch)
+        writer.add_scalar('train/sensitivity', train_log['sensitivity'], epoch)
+        writer.add_scalar('train/specificity', train_log['specificity'], epoch)
         writer.add_scalar('valid/loss', val_log['loss'], epoch)
         writer.add_scalar('valid/dice', val_log['dice'], epoch)
+        writer.add_scalar('valid/acc', val_log['acc'], epoch)
+        writer.add_scalar('valid/iou', val_log['iou'], epoch)
+        writer.add_scalar('valid/sensitivity', val_log['sensitivity'], epoch)
+        writer.add_scalar('valid/specificity', val_log['specificity'], epoch)
+
         writer.flush()
 
         log['epoch'].append(epoch)

@@ -1,5 +1,7 @@
 import argparse
 import torch
+from torch import Tensor
+from torch.types import Number
 
 
 def dice_coef(output, target):
@@ -11,6 +13,55 @@ def dice_coef(output, target):
 
     return (2. * intersection + smooth) / \
         (output.sum() + target.sum() + smooth)
+
+
+def iou_coef(output: Tensor, target: Tensor) -> Number:
+    smooth = 1e-5
+
+    intersection = torch.logical_and(output, target).sum()
+    union = torch.logical_or(output, target).sum()
+    result = (intersection + smooth) / (union + smooth)
+
+    return result.item()
+
+
+def acc_coef(output: Tensor, target: Tensor) -> Number:
+    total = output.view(-1).size(0)
+    accuracy = torch.eq(output, target).sum() / total
+
+    return accuracy.item()
+
+
+def specificity_coef(output: Tensor, target: Tensor) -> Number:
+    """
+
+    :param output:
+    :param target:
+    :return:
+    """
+    smooth = 1e-5
+
+    tn = torch.logical_and(torch.logical_not(output), torch.logical_not(target)).sum()
+    fn = torch.logical_and(output, torch.logical_not(target)).sum()
+    tnr = (tn + smooth) / (tn + fn + smooth)
+
+    return tnr.item()
+
+
+def sensitivity_coef(output: Tensor, target: Tensor) -> Number:
+    """
+
+    :param output:
+    :param target:
+    :return:
+    """
+    smooth = 1e-5
+
+    tp = torch.logical_and(output, target).sum()
+    fp = torch.logical_and(output, torch.logical_not(target)).sum()
+    tpr = (tp + smooth) / (tp + fp + smooth)
+
+    return tpr.item()
 
 
 def str2bool(v):
