@@ -24,40 +24,30 @@ def iou_coef(output: Tensor, target: Tensor) -> Number:
     return result.item()
 
 
-def acc_coef(output: Tensor, target: Tensor) -> Number:
-    total = output.view(-1).size(0)
-    accuracy = torch.eq(output, target).sum() / total
+def acc_coef(predict: Tensor, actual: Tensor) -> Number:
+    total = predict.view(-1).size(0)
+    accuracy = torch.eq(predict, actual).sum() / total
 
     return accuracy.item()
 
 
-def specificity_coef(output: Tensor, target: Tensor) -> Number:
-    """
-
-    :param output:
-    :param target:
-    :return:
-    """
+def specificity_coef(predict: Tensor, actual: Tensor) -> Number:
     smooth = 1e-5
 
-    tn = torch.logical_and(torch.logical_not(output), torch.logical_not(target)).sum()
-    fn = torch.logical_and(output, torch.logical_not(target)).sum()
-    tnr = (tn + smooth) / (tn + fn + smooth)
+    n = torch.logical_not(actual)
+
+    tn = torch.logical_and(torch.logical_not(predict), n).sum()
+    fp = torch.logical_and(predict, n).sum()
+    tnr = (tn + smooth) / (fp + tn + smooth)
 
     return tnr.item()
 
 
-def sensitivity_coef(output: Tensor, target: Tensor) -> Number:
-    """
-
-    :param output:
-    :param target:
-    :return:
-    """
+def sensitivity_coef(predict: Tensor, actual: Tensor) -> Number:
     smooth = 1e-5
 
-    tp = torch.logical_and(output, target).sum()
-    fp = torch.logical_and(output, torch.logical_not(target)).sum()
+    tp = torch.logical_and(predict, actual).sum()
+    fp = torch.logical_and(predict, torch.logical_not(actual)).sum()
     tpr = (tp + smooth) / (tp + fp + smooth)
 
     return tpr.item()

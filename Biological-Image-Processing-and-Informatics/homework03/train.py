@@ -66,13 +66,15 @@ def parse_args():
     parser.add_argument('--nesterov', default=False, type=str2bool,
                         help='nesterov')
     parser.add_argument('--num_workers', default=0, type=int)
+
+    parser.add_argument('--gpu', default=0, type=int)
     config = parser.parse_args()
 
     return config
 
 
 # 定义训练过程。使用训练数据集进行训练，计算损失函数和评估指标，并更新模型参数。
-def train(train_loader, model, criterion, optimizer):
+def train(train_loader, model, criterion, optimizer, device):
     # 初始化平均指标（损失和dice）的AverageMeter对象
     avg_meters = {
         'loss': AverageMeter(),
@@ -90,8 +92,8 @@ def train(train_loader, model, criterion, optimizer):
     # 遍历训练数据加载器，获取输入和目标数据。
     for input, target, _ in train_loader:
         # 将输入和目标数据移至GPU
-        input = input.cuda()
-        target = target.cuda()
+        input = input.to(device)
+        target = target.to(device)
 
         # compute output
         # 计算模型的输出和损失
@@ -138,7 +140,7 @@ def train(train_loader, model, criterion, optimizer):
     ])
 
 
-def validate(val_loader, model, criterion):
+def validate(val_loader, model, criterion, device):
     avg_meters = {
         'loss': AverageMeter(),
         'dice': AverageMeter(),
@@ -155,8 +157,8 @@ def validate(val_loader, model, criterion):
     with torch.no_grad():
         pbar = tqdm(total=len(val_loader))
         for input, target, _ in val_loader:
-            input = input.cuda()
-            target = target.cuda()
+            input = input.to(device)
+            target = target.to(device)
 
             # compute output
             output = model(input)
@@ -202,25 +204,50 @@ def main():
     os.makedirs(exp_dir, exist_ok=True)
     with open(f'{exp_dir}/config.yml', 'w') as f:
         yaml.dump(config, f)
+
+    device = torch.device('cuda', config['gpu'])
     # define loss function (criterion)
-    criterion = losses.__dict__[config['loss']]().cuda()
+    criterion = losses.__dict__[config['loss']]().to(device)
 
     # create model，建模
     model = UNet(n_channels=1, n_classes=1)
-    model = model.cuda()
+    model = model.to(device)
     params = filter(lambda p: p.requires_grad, model.parameters())
 
     if config['optimizer'] == 'SGD':
-        optimizer = optim.SGD(params, lr=config['lr'], momentum=config['momentum'],
-                              nesterov=config['nesterov'], weight_decay=config['weight_decay'])
+        optimizer = optim.SGD(
+            params,
+            lr=config['lr'],
+            momentum=config['momentum'],
+            nesterov=config['nesterov'],
+            weight_decay=config['weight_decay']
+        )
     elif config['optimizer'] == 'Adam':
-        optimizer = optim.Adam(params, lr=config['lr'], weight_decay=config['weight_decay'])
+        optimizer = optim.Adam(
+            params,
+            lr=config['lr'],
+            weight_decay=config['weight_decay']
+        )
     elif config['optimizer'] == 'AdamW':
-        optimizer = optim.AdamW(params, lr=config['lr'], weight_decay=config['weight_decay'])
+        optimizer = optim.AdamW(
+            params,
+            lr=config['lr'],
+            weight_decay=config['weight_decay']
+        )
     elif config['optimizer'] == 'RMSProp':
-        optimizer = optim.RMSprop(params, lr=config['lr'], weight_decay=config['weight_decay'], momentum=config['momentum'])
+        optimizer = optim.RMSprop(
+            params,
+            lr=config['lr'],
+            weight_decay=config['weight_decay'],
+            momentum=config['momentum']
+        )
     else:
-        optimizer = optim.Adam(params, lr=config['lr'], weight_decay=config['weight_decay'])
+        optimizer = optim.Adam(
+            params,
+            lr=config['lr'],
+            weight_decay=config['weight_decay']
+        )
+
     # 根据配置参数config中的学习率调度器类型和参数设置创建学习率调度器对象scheduler：
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.8, patience=5)
 
@@ -242,7 +269,7 @@ def main():
         albu.RandomRotate90(),
         albu.Flip(),
         OneOf([
-            transforms.HueSaturationValue(),
+            transforms.HueSaturationValue(hue_shift_limit=0, sat_shift_limit=0),
             transforms.RandomBrightnessContrast(),
         ], p=1),  # 按照归一化的概率选择执行哪一个
         albu.Resize(config['input_h'], config['input_w']),
@@ -297,16 +324,16 @@ def main():
 
     with torch.no_grad():
         test_data = next(iter(train_loader))
-        writer.add_graph(model, test_data[0].cuda())
+        writer.add_graph(model, test_data[0].to(device))
 
     for epoch in range(config['epochs']):
         print('Epoch [%d/%d]' % (epoch, config['epochs']))
 
         # train for one epoch
-        train_log = train(train_loader, model, criterion, optimizer)
+        train_log = train(train_loader, model, criterion, optimizer, device)
         scheduler.step(train_log['loss'])
         # evaluate on validation set
-        val_log = validate(val_loader, model, criterion)
+        val_log = validate(val_loader, model, criterion, device)
 
         print('loss %.4f - dice %.4f - val_loss %.4f - val_dice %.4f'
               % (train_log['loss'], train_log['dice'], val_log['loss'], val_log['dice']))
