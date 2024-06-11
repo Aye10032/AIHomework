@@ -32,23 +32,21 @@ def acc_coef(predict: Tensor, actual: Tensor) -> Number:
 
 
 def specificity_coef(predict: Tensor, actual: Tensor) -> Number:
-    smooth = 1e-5
+    smooth = 1e-8
 
-    n = torch.logical_not(actual)
-
-    tn = torch.logical_and(torch.logical_not(predict), n).sum()
-    fp = torch.logical_and(predict, n).sum()
-    tnr = (tn + smooth) / (fp + tn + smooth)
+    tn = torch.logical_and(torch.logical_not(predict), torch.logical_not(actual)).sum()
+    n = torch.logical_not(actual).sum()
+    tnr = (tn + smooth) / (n + smooth)
 
     return tnr.item()
 
 
 def sensitivity_coef(predict: Tensor, actual: Tensor) -> Number:
-    smooth = 1e-5
+    smooth = 1e-8
 
     tp = torch.logical_and(predict, actual).sum()
-    fp = torch.logical_and(predict, torch.logical_not(actual)).sum()
-    tpr = (tp + smooth) / (tp + fp + smooth)
+    p = actual.sum()
+    tpr = (tp + smooth) / (p + smooth)
 
     return tpr.item()
 
