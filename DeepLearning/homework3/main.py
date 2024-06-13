@@ -1,10 +1,13 @@
 import numpy as np
 import torch
-from torch import nn
+from torch import nn, Tensor
+from torch.optim import Adam, Optimizer
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from torchnet import meter
+from tqdm import tqdm
 
-from DeepLearning.homework3.Data import TangData
+from Data import TangData
 
 
 class PoetryModel(nn.Module):
@@ -32,9 +35,54 @@ class PoetryModel(nn.Module):
         return output, hidden
 
 
-def train(model, dataloader, optimizer, criterion, loss_meter):
+def train(
+        model: nn.Module,
+        dataloader: DataLoader,
+        optimizer: Optimizer,
+        criterion: nn.CrossEntropyLoss,
+        loss_meter: meter.AverageValueMeter,
+        epoch
+):
     model.train()
-    # TODO
+    for i, (inputs, targets) in tqdm(enumerate(dataloader), desc=f'Epoc {epoch}', total=len(dataloader)):
+        optimizer.zero_grad()
+        inputs: Tensor = inputs.cuda()
+        targets: Tensor = targets.cuda().view(-1)
+
+        outputs, hidden = model(inputs)
+        loss = criterion(outputs, targets)
+        loss.backward()
+        optimizer.step()
+
+        loss_meter.add(loss.item())
+
+
+def generate(model, start_words, ix2word, word2ix):
+    results = list(start_words)
+    start_words_len = len(start_words)
+    # 第一个词语是<START>
+    inputs = torch.tensor([word2ix['<START>']], device='cuda').view(1, 1).long()
+
+    hidden = None
+    model.eval()
+    with torch.no_grad():
+        for i in range(50):
+            output, hidden = model(inputs, hidden)
+            # 如果在给定的句首中，input 为句首中的下一个字
+            if i < start_words_len:
+                w = results[i]
+                inputs = inputs.data.new([word2ix[w]]).view(1, 1)
+            # 否则将 output 作为下一个 input 进行
+            else:
+                top_index = output.data[0].topk(1)[1][0].item()
+                w = ix2word[top_index]
+                results.append(w)
+                inputs = inputs.data.new([top_index]).view(1, 1)
+            if w == '<EOP>':
+                del results[-1]
+                break
+
+    return ''.join(results)
 
 
 def main() -> None:
@@ -45,18 +93,32 @@ def main() -> None:
     dataloader = DataLoader(
         dataset,
         batch_size=16,
-        shuffle=True,
+        shuffle=False,
         num_workers=2
     )
 
-    with torch.no_grad():
-        data0 = next(iter(dataloader))
-        print(data0.shape)
+    writer = SummaryWriter(f'runs/emb{1024}_hidden{512}')
 
     model = PoetryModel(len(word2ix), 1024, 512).cuda()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     criterion = nn.CrossEntropyLoss()
     loss_meter = meter.AverageValueMeter()
+
+    with torch.no_grad():
+        data0 = next(iter(dataloader))
+        writer.add_graph(model, input_to_model=data0[0].cuda())
+
+    max_loss = 100
+    for epoch in range(20):
+        train(model, dataloader, optimizer, criterion, loss_meter, epoch)
+        writer.add_scalar('loss', loss_meter.mean, epoch)
+        if max_loss > loss_meter.mean:
+            max_loss = loss_meter.mean
+            torch.save(model.state_dict(), 'model/model.pth')
+        loss_meter.reset()
+
+    model_output = generate(model, '举头', ix2word, word2ix)
+    print(model_output)
 
 
 if __name__ == '__main__':
