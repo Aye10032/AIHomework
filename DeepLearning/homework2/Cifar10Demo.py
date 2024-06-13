@@ -82,7 +82,8 @@ def main() -> None:
         heads=heads,
         hidden_size=hidden_size,
         mlp_size=mlp_size,
-        dropout=0,
+        pool='cls',
+        dropout=0.01,
         emb_dropout=0,
     )
     net = accelerator.prepare_model(net)
@@ -93,13 +94,19 @@ def main() -> None:
     optimizer = torch.optim.Adam(net.parameters(), lr=lr)
     optimizer = accelerator.prepare_optimizer(optimizer)
     if args.scheduler:
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
-            mode='max',
-            factor=0.9,
-            patience=10,
-            cooldown=0
+            T_max=max_epoch * len(train_loader),
+            eta_min=1e-5
         )
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        #     optimizer,
+        #     mode='max',
+        #     factor=0.9,
+        #     patience=10,
+        #     cooldown=0,
+        #     min_lr=1e-5
+        # )
         scheduler = accelerator.prepare_scheduler(scheduler)
     else:
         scheduler = None
@@ -110,7 +117,7 @@ def main() -> None:
     test_metric = evaluate.combine(['accuracy', 'confusion_matrix'])
 
     best_acc = 0.
-    for i in range(max_epoch):
+    for i in range(max_epoch + 1):
         train(net, optimizer, scheduler, accelerator, i, train_loader, writer, train_metric)
 
         if i % 5 == 0:

@@ -306,6 +306,9 @@ def train(
         sparse_selection(net)
         optimizer.step()
 
+        if schedule is not None:
+            schedule.step()
+
         train_loss.append(loss.item())
         _, predicted = outputs.max(1)
 
@@ -318,9 +321,7 @@ def train(
     if accelerator.is_local_main_process:
         result = metric.compute()
 
-        if schedule is not None:
-            schedule.step(result['accuracy'])
-            writer.add_scalar('lr', schedule.get_last_lr()[0], epoch)
+        writer.add_scalar('lr', schedule.get_last_lr()[0], epoch)
 
         writer.add_scalar('Train/loss', np.mean(global_train_loss), epoch)
         writer.add_scalar('Train/acc', 100. * result['accuracy'], epoch)
@@ -336,8 +337,8 @@ def test(
         writer: SummaryWriter,
         metric: CombinedEvaluations,
         best_acc: float,
-        _labels: list,
-        model_name: str
+        model_name: str = '',
+        _labels: list = None,
 ) -> int:
     """
     测试给定网络的性能。
@@ -349,8 +350,8 @@ def test(
     :param writer: 用于写入TensorBoard日志的SummaryWriter对象。
     :param metric: 模型评估pipline
     :param best_acc: 全局最优ACC，用于保存模型
-    :param _labels: 类别的标签，用于可视化
     :param model_name: 保存模型的名称
+    :param _labels: 类别的标签，用于可视化
     :return: 更新后的全局最优ACC
     """
 
@@ -367,8 +368,6 @@ def test(
         ):
             inputs: Tensor
             targets: Tensor
-
-            # inputs, targets = inputs.to(accelerator.device), targets.to(accelerator.device)
 
             outputs = net(inputs)  # 网络前向传播
 
@@ -391,20 +390,21 @@ def test(
             writer.add_scalar('Test/acc', new_acc, epoch)
 
             if best_acc < new_acc:
-                fig, ax = plt.subplots()
-                sns.heatmap(
-                    np.array(result['confusion_matrix']),
-                    annot=True,
-                    cmap='Blues',
-                    fmt='d',
-                    xticklabels=_labels,
-                    yticklabels=_labels,
-                    ax=ax
-                )
-                ax.set_xlabel('Predicted label')
-                ax.set_ylabel('True label')
-                writer.add_figure('', fig, epoch)
-                plt.close()
+                if _labels is not None:
+                    fig, ax = plt.subplots()
+                    sns.heatmap(
+                        np.array(result['confusion_matrix']),
+                        annot=True,
+                        cmap='Blues',
+                        fmt='d',
+                        xticklabels=_labels,
+                        yticklabels=_labels,
+                        ax=ax
+                    )
+                    ax.set_xlabel('Predicted label')
+                    ax.set_ylabel('True label')
+                    writer.add_figure('', fig, epoch)
+                    plt.close()
 
                 best_acc = new_acc
                 torch.save(net.state_dict(), f'models/{model_name}.pth')

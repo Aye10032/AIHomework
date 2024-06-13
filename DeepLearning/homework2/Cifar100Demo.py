@@ -1,5 +1,6 @@
 import argparse
 
+import evaluate
 import torch
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import (
@@ -8,19 +9,45 @@ from torchvision.transforms import (
     RandomResizedCrop,
     CenterCrop,
     RandomHorizontalFlip,
+    RandomRotation,
+    ColorJitter,
     ToTensor,
     Normalize
 )
 from torchvision.datasets import CIFAR100
 from torch.utils.data import DataLoader
+from accelerate import Accelerator, DataLoaderConfiguration
 
 from VitModel import ViT, train, test
 
 
-def load_data(ddp: bool = False):
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dim', type=int, default=512)
+    parser.add_argument('--layers', type=int, default=7)
+    parser.add_argument('--heads', type=int, default=8)
+    parser.add_argument('--hidden_size', type=int, default=72)
+    parser.add_argument('--mlp_size', type=int, default=256)
+    parser.add_argument('--scheduler', action='store_true', default=False)
+
+    args = parser.parse_args()
+
+    dataloader_config = DataLoaderConfiguration(split_batches=True)
+    accelerator = Accelerator(dataloader_config=dataloader_config)
+
+    lr = 1e-4
+    max_epoch = 900
+    dim = args.dim
+    layers = args.layers
+    heads = args.heads
+    hidden_size = args.hidden_size
+    mlp_size = args.mlp_size
+
     trans_train = Compose([
         RandomResizedCrop(224),
         RandomHorizontalFlip(),
+        RandomRotation(45),
+        ColorJitter(0.5, 0.5, 0.5),
         ToTensor(),
         Normalize(
             mean=[0.485, 0.456, 0.406],
@@ -41,44 +68,10 @@ def load_data(ddp: bool = False):
     train_set = CIFAR100(root='./cifar100', train=True, download=True, transform=trans_train)
     test_set = CIFAR100(root='./cifar100', train=False, download=False, transform=trans_valid)
 
-    if ddp:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_set)
-        test_sampler = torch.utils.data.distributed.DistributedSampler(test_set)
+    labels = test_set.classes
 
-        train_loader = DataLoader(train_set, batch_size=256, shuffle=False, num_workers=4, sampler=train_sampler)
-        test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=4, sampler=test_sampler)
-    else:
-        train_loader = DataLoader(train_set, batch_size=256, shuffle=True, num_workers=4)
-        test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=4)
-
-    return train_loader, test_loader
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--dim', type=int, default=512)
-    parser.add_argument('--layers', type=int, default=7)
-    parser.add_argument('--heads', type=int, default=7)
-    parser.add_argument('--hidden_size', type=int, default=72)
-    parser.add_argument('--mlp_size', type=int, default=256)
-    parser.add_argument('--gpu_index', type=int, default=0)
-    parser.add_argument('--ddp', action='store_true', default=False)
-    parser.add_argument('--scheduler', action='store_true', default=False)
-
-    args = parser.parse_args()
-
-    gpu_index = args.gpu_index
-    lr = 1e-4
-    max_epoch = 500
-    dim = args.dim
-    layers = args.layers
-    heads = args.heads
-    hidden_size = args.hidden_size
-    mlp_size = args.mlp_size
-
-    train_loader, test_loader = load_data(args.ddp)
-
-    device = torch.device("cuda", gpu_index)
+    train_loader = DataLoader(train_set, batch_size=256, shuffle=True, num_workers=4)
+    test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=4)
 
     net = ViT(
         image_size=(224, 224),
@@ -91,28 +84,35 @@ def main() -> None:
         mlp_size=mlp_size,
         dropout=0,
         emb_dropout=0,
-        device=[device]
     )
+    net = accelerator.prepare_model(net)
+
+    train_loader = accelerator.prepare_data_loader(train_loader)
+    test_loader = accelerator.prepare_data_loader(test_loader)
+
     optimizer = torch.optim.Adam(net.parameters(), lr=lr)
+    optimizer = accelerator.prepare_optimizer(optimizer)
     if args.scheduler:
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epoch * len(train_loader), eta_min=1e-5)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            T_max=max_epoch * len(train_loader),
+            eta_min=1e-5
+        )
+        scheduler = accelerator.prepare_scheduler(scheduler)
     else:
         scheduler = None
 
-    writer = SummaryWriter(log_dir=f'runs/cif100_head{heads}_layer{layers}_dim{dim}_hidden{hidden_size}_mlp{mlp_size}')
+    model_name = f'cif100_head{heads}_layer{layers}_dim{dim}_hidden{hidden_size}_mlp{mlp_size}_{max_epoch}'
+    writer = SummaryWriter(log_dir=f'runs100/{model_name}')
+    train_metric = evaluate.load('accuracy')
+    test_metric = evaluate.combine(['accuracy', 'confusion_matrix'])
 
-    with torch.no_grad():
-        tensor = torch.rand(1, 3, 224, 224).to(device)
-        writer.add_graph(net, input_to_model=tensor)
-
+    best_acc = 0.
     for i in range(max_epoch):
-        train(net, optimizer, scheduler, [device], i, train_loader, writer)
+        train(net, optimizer, scheduler, accelerator, i, train_loader, writer, train_metric)
 
         if i % 5 == 0:
-            test(net, [device], i, test_loader, writer)
-
-        if i % 50 == 0 and i != 0:
-            torch.save(net.state_dict(), f'models/cif100_head{heads}_layer{layers}_dim{dim}_ep{i}.pth')
+            best_acc = test(net, accelerator, i, test_loader, writer, test_metric, best_acc, labels, model_name)
 
 
 if __name__ == '__main__':
