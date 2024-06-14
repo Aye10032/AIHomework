@@ -1,3 +1,5 @@
+import argparse
+
 import torch
 
 from Data import TangData
@@ -33,6 +35,10 @@ def generate(model, start_words, ix2word, word2ix):
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input', type=str, default='')
+    args = parser.parse_args()
+
     dataset = TangData()
     ix2word = dataset.ix2word
     word2ix = dataset.word2ix
@@ -40,7 +46,7 @@ def main() -> None:
     model = PoetryModel(len(word2ix), 1024, 512).cuda()
     model.load_state_dict(torch.load('model/model.pth'))
 
-    model_output = generate(model, '你妈死了', ix2word, word2ix)
+    model_output = generate(model, args.input, ix2word, word2ix)
     print(model_output)
 
 
