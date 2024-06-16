@@ -64,7 +64,7 @@ class TransData(Dataset):
         logger.info('tokenize src...')
         src_ids = []
         for line in tqdm(src_lines):
-            src_ids.append(torch.tensor([
+            src_ids.append(torch.LongTensor([
                 self.src_word2id[word]
                 if word in self.src_word2id else
                 self.src_word2id['<UNK>']
@@ -73,7 +73,7 @@ class TransData(Dataset):
 
         target_ids = []
         for line in tqdm(target_lines):
-            target_ids.append(torch.tensor([
+            target_ids.append(torch.LongTensor([
                 self.target_word2id[word]
                 if word in self.target_word2id else
                 self.target_word2id['<UNK>']
