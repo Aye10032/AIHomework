@@ -15,7 +15,7 @@ class DataType(IntEnum):
 
 
 class TransData(Dataset):
-    def __init__(self, data_path: str, data_type: DataType, padding_length: int = 62):
+    def __init__(self, data_path: str, data_type: DataType):
         match data_type:
             case DataType.TRAIN:
                 self.src_file = os.path.join(data_path, 'train.zh')
@@ -29,7 +29,6 @@ class TransData(Dataset):
             case _:
                 raise RuntimeError('无效的参数！')
 
-        self.max_len = padding_length
         self.src_vocab = os.path.join(data_path, 'vocab.zh')
         self.target_vocab = os.path.join(data_path, 'vocab.en')
 
@@ -81,7 +80,7 @@ class TransData(Dataset):
                 for word in line
             ]))
 
-        logger.info(f'padding to {self.max_len}')
+        logger.info('padding dataset...')
         self.src_tensor = pad_sequence(src_ids, True, self.src_word2id['<PAD>'])
         self.target_tensor = pad_sequence(target_ids, True, self.target_word2id['<PAD>'])
 
