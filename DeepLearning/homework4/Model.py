@@ -6,18 +6,18 @@ from Config import *
 
 
 class EmbeddingWithPosition(nn.Module):
-    def __init__(self, vocab_size: int, emb_dim: int, dropout: float, max_token: int):
+    def __init__(self, vocab_size: int, emb_size: int, dropout: float, max_token: int):
         super(EmbeddingWithPosition, self).__init__()
 
-        self.word_embedding = nn.Embedding(vocab_size, emb_dim)
+        self.word_embedding = nn.Embedding(vocab_size, emb_size)
 
         position_idx = torch.arange(0, max_token, dtype=torch.float).unsqueeze(-1)
-        position_emb = position_idx * torch.exp(-torch.arange(0, emb_dim, 2) * math.log(1000.0) / emb_dim)
-        position_encoding = torch.zeros(max_token, emb_dim)
+        position_emb = position_idx * torch.exp(-torch.arange(0, emb_size, 2) * math.log(1000.0) / emb_size)
+        position_encoding = torch.zeros(max_token, emb_size)
         position_encoding[:, 0::2] = torch.sin(position_emb)
         position_encoding[:, 1::2] = torch.cos(position_emb)
 
-        # (1, max_token, emb_dim)
+        # (1, max_token, emb_size)
         position_encoding = position_encoding.unsqueeze(0)
         self.register_buffer('pos_encoding', position_encoding)
 
@@ -25,24 +25,26 @@ class EmbeddingWithPosition(nn.Module):
 
     def forward(self, x: Tensor):
         # (batch_size, seq_length, vocab_size)
-        # -> (batch_size, seq_length, emb_dim)
+        # -> (batch_size, seq_length, emb_size)
         x = self.word_embedding(x)
         x = x + self.pos_encoding[:, :x.shape[1], :]
         return self.dropout(x)
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, emb_dim: int, hidden_size: int, head: int):
+    def __init__(self, emb_size: int, hidden_size: int, head: int):
         super(MultiHeadAttention, self).__init__()
         self.hidden_size = hidden_size
         self.head = head
 
-        self.w_q = nn.Linear(emb_dim, head * hidden_size)
-        self.w_k = nn.Linear(emb_dim, head * hidden_size)
-        self.w_v = nn.Linear(emb_dim, head * hidden_size)
+        self.w_q = nn.Linear(emb_size, head * hidden_size)
+        self.w_k = nn.Linear(emb_size, head * hidden_size)
+        self.w_v = nn.Linear(emb_size, head * hidden_size)
+
+        self.output = nn.Linear(head * hidden_size, emb_size)
 
     def forward(self, x_vk: Tensor, x_q: Tensor, attn_mask: Tensor):
-        # (batch_size, seq_length, emb_dim)
+        # (batch_size, seq_length, emb_size)
         # -> (batch_size, seq_length, head * hidden_size)
         q: Tensor = self.w_q(x_q)
         k: Tensor = self.w_k(x_vk)
@@ -71,21 +73,59 @@ class MultiHeadAttention(nn.Module):
         # -> (batch_size, seq_length, head * hidden_size)
         z = z.reshape((z.shape[0], z.shape[1], self.head * self.hidden_size))
 
-        return z
+        # -> (batch_size, seq_length, emb_size)
+        return self.output(z)
+
+
+class FeedForward(nn.Module):
+    def __init__(self, emb_size: int, ffw_size: int):
+        super(FeedForward, self).__init__()
+
+        self.ffw = nn.Sequential(
+            nn.Linear(emb_size, ffw_size),
+            nn.GELU(),
+            nn.Linear(ffw_size, emb_size)
+        )
+
+    def forward(self, x: Tensor):
+        return self.ffw(x)
+
+
+class EncoderBlock(nn.Module):
+    def __init__(self, emb_size: int, hidden_size: int, head: int, ffw_size: int, attn_dropout: float, ffw_dropout: float):
+        super(EncoderBlock, self).__init__()
+
+        self.attn_layer = MultiHeadAttention(emb_size, hidden_size, head)
+        self.attn_norm = nn.LayerNorm(emb_size)
+        self.attn_drop = nn.Dropout(attn_dropout)
+
+        self.ffw_layer = FeedForward(emb_size, ffw_size)
+        self.ffw_norm = nn.LayerNorm(emb_size)
+        self.ffw_drop = nn.Dropout(ffw_dropout)
+
+    def forward(self, x: Tensor, attn_mask: Tensor):
+        # (batch_size, seq_length, emb_size)
+        z = self.attn_layer(x, x, attn_mask)
+        output1 = self.attn_norm(x + self.attn_drop(z))
+
+        z = self.ffw_layer(output1)
+        output2 = self.ffw_norm(output1 + self.ffw_drop(z))
+
+        return output2
 
 
 class Encoder(nn.Module):
-    def __init__(self, vocab_size: int, emb_dim: int, emb_dropout: float = 0.1, max_token: int = 200):
+    def __init__(self, vocab_size: int, emb_size: int, emb_dropout: float = 0.1, max_token: int = 200):
         super(Encoder, self).__init__()
 
-        self.emb = EmbeddingWithPosition(vocab_size, emb_dim, emb_dropout, max_token)
+        self.emb = EmbeddingWithPosition(vocab_size, emb_size, emb_dropout, max_token)
 
 
 def main() -> None:
-    net = MultiHeadAttention(32, 64, 3)
+    net = EncoderBlock(32, 64, 3, 128, 0.1, 0.1)
     inputs = torch.zeros((16, 60, 32), dtype=torch.float)
     mask = torch.tril(torch.ones((60, 60))).bool().repeat(16, 1, 1)
-    outputs = net.forward(inputs, inputs, mask)
+    outputs = net.forward(inputs, mask)
     print(outputs.shape)
 
 
