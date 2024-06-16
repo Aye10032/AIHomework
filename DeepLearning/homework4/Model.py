@@ -115,19 +115,38 @@ class EncoderBlock(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, vocab_size: int, emb_size: int, emb_dropout: float = 0.1, max_token: int = 200):
+    def __init__(
+            self,
+            vocab_size: int,
+            emb_size: int,
+            hidden_size: int,
+            head: int,
+            ffw_size: int,
+            num_layers: int,
+            attn_dropout: float = 0.1,
+            ffw_dropout: float = 0.1,
+            emb_dropout: float = 0.1,
+            max_token: int = 200
+    ):
         super(Encoder, self).__init__()
 
         self.emb = EmbeddingWithPosition(vocab_size, emb_size, emb_dropout, max_token)
 
+        self.encoder_layer = nn.ModuleList()
+        for i in range(num_layers):
+            self.encoder_layer.append(EncoderBlock(emb_size, hidden_size, head, ffw_size, attn_dropout, ffw_dropout))
 
-def main() -> None:
-    net = EncoderBlock(32, 64, 3, 128, 0.1, 0.1)
-    inputs = torch.zeros((16, 60, 32), dtype=torch.float)
-    mask = torch.tril(torch.ones((60, 60))).bool().repeat(16, 1, 1)
-    outputs = net.forward(inputs, mask)
-    print(outputs.shape)
+    def forward(self, x: Tensor):
+        # (batch_size, 1, seq_length)
+        # -> (batch_size, seq_length, seq_length)
+        mask: Tensor = (x == PAD_IDX).unsqueeze(1)
+        mask = mask.repeat(1, x.shape[1], 1)
 
+        # (batch_size, seq_length)
+        # -> (batch_size, seq_length, emb_size)
+        x = self.emb(x)
 
-if __name__ == '__main__':
-    main()
+        for block in self.encoder_layer:
+            x = block(x, mask)
+
+        return x
