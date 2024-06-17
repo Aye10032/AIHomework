@@ -132,21 +132,86 @@ class Encoder(nn.Module):
 
         self.emb = EmbeddingWithPosition(vocab_size, emb_size, emb_dropout, max_token)
 
-        self.encoder_layer = nn.ModuleList()
+        self.encoder_blocks = nn.ModuleList()
         for i in range(num_layers):
-            self.encoder_layer.append(EncoderBlock(emb_size, hidden_size, head, ffw_size, attn_dropout, ffw_dropout))
+            self.encoder_blocks.append(EncoderBlock(emb_size, hidden_size, head, ffw_size, attn_dropout, ffw_dropout))
 
     def forward(self, x: Tensor):
         # (batch_size, 1, seq_length)
         # -> (batch_size, seq_length, seq_length)
-        mask: Tensor = (x == PAD_IDX).unsqueeze(1)
-        mask = mask.repeat(1, x.shape[1], 1)
+        mask: Tensor = (x == PAD_IDX).unsqueeze(1).repeat(1, x.shape[1], 1)
 
         # (batch_size, seq_length)
         # -> (batch_size, seq_length, emb_size)
         x = self.emb(x)
 
-        for block in self.encoder_layer:
+        for block in self.encoder_blocks:
             x = block(x, mask)
+
+        return x
+
+
+class DecoderBlock(nn.Module):
+    def __init__(self, emb_size: int, hidden_size: int, head: int, ffw_size: int, attn_dropout: float, ffw_dropout: float):
+        super(DecoderBlock, self).__init__()
+
+        self.masked_attn_layer = MultiHeadAttention(emb_size, hidden_size, head)
+        self.masked_attn_norm = nn.LayerNorm(emb_size)
+        self.masked_attn_drop = nn.Dropout(attn_dropout)
+
+        self.attn_layer = MultiHeadAttention(emb_size, hidden_size, head)
+        self.attn_norm = nn.LayerNorm(emb_size)
+        self.attn_drop = nn.Dropout(attn_dropout)
+
+        self.ffw_layer = FeedForward(emb_size, ffw_size)
+        self.ffw_norm = nn.LayerNorm(emb_size)
+        self.ffw_drop = nn.Dropout(ffw_dropout)
+
+    def forward(self, x: Tensor, encoder_output: Tensor, mask1: Tensor, mask2: Tensor):
+        z = self.masked_attn_layer(x, x, mask1)
+        output1 = self.masked_attn_norm(x + self.masked_attn_norm(z))
+
+        z = self.attn_layer(encoder_output, output1, mask2)
+        output2 = self.attn_norm(output1 + self.attn_drop(z))
+
+        z = self.ffw_layer(output2)
+        output = self.ffw_norm(output2 + self.ffw_drop(z))
+
+        return output
+
+
+class Decoder(nn.Module):
+    def __init__(
+            self,
+            vocab_size: int,
+            emb_size: int,
+            hidden_size: int,
+            head: int,
+            ffw_size: int,
+            num_layers: int,
+            attn_dropout: float = 0.1,
+            ffw_dropout: float = 0.1,
+            emb_dropout: float = 0.1,
+            max_token: int = 200
+    ):
+        super(Decoder, self).__init__()
+
+        self.emb = EmbeddingWithPosition(vocab_size, emb_size, emb_dropout, max_token)
+
+        self.decoder_blocks = nn.ModuleList()
+        for i in range(num_layers):
+            self.decoder_blocks.append(DecoderBlock(emb_size, hidden_size, head, ffw_size, attn_dropout, ffw_dropout))
+
+    def forward(self, x: Tensor, encoder_in: Tensor, encoder_out: Tensor):
+        # (batch_size, seq_len, seq_len)
+        mask1: Tensor = (x == PAD_IDX).unsqueeze(1).repeat(1, x.shape[1], 1)
+        mask1 = mask1 | torch.triu(torch.ones(x.shape[1], x.shape[1]), diagonal=1).bool().unsqueeze(1).repeat(1, x.shape[1], 1)
+
+        # (batch_size, target_len, src_len)
+        mask2: Tensor = (encoder_in == PAD_IDX).unsqueeze(1).repeat(1, x.shape[1], 1)
+        x = self.emb(x)
+
+        for block in self.decoder_blocks:
+            x = block(x, encoder_out, mask1, mask2)
 
         return x
