@@ -205,12 +205,11 @@ class Decoder(nn.Module):
     def forward(self, x: Tensor, encoder_in: Tensor, encoder_out: Tensor):
         # (batch_size, seq_len, seq_len)
         mask1: Tensor = (x == PAD_IDX).unsqueeze(1).repeat(1, x.shape[1], 1)
-        mask1_fill = torch.triu(torch.ones(x.shape[1], x.shape[1]), diagonal=1).bool().unsqueeze(0).repeat(x.shape[0], 1, 1)
+        mask1_fill = torch.triu(torch.ones(x.shape[1], x.shape[1]), diagonal=1).bool().unsqueeze(0).repeat(x.shape[0], 1, 1).cuda()
         mask1 = mask1 | mask1_fill
 
         # (batch_size, target_len, src_len)
         mask2: Tensor = (encoder_in == PAD_IDX).unsqueeze(1).repeat(1, x.shape[1], 1)
-        print(mask2.shape)
         x = self.emb(x)
 
         for block in self.decoder_blocks:
