@@ -3,7 +3,7 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 
 from Data import TransData, DataType
-from Model import Encoder, Decoder
+from Model import Transformer
 from Config import *
 
 
@@ -27,13 +27,11 @@ def main() -> None:
     test_data, test_target = next(iter(dataloader))
     vocab = len(dataset.src_word2id)
 
-    encoder = Encoder(vocab, 512, 128, 3, 256, 2)
-    decoder = Decoder(len(dataset.target_word2id), 512, 128, 3, 256, 2)
+    net = Transformer(vocab, len(dataset.target_word2id), 512, 128, 3, 256, 2)
     print(test_data.shape, test_target.shape)
-    output = encoder.forward(test_data)
-    # print(output.shape)
-    decoder_out = decoder.forward(test_target, test_data, output)
-    print(decoder_out.shape)
+    output = net.forward(test_data, test_target)
+
+    print(output.shape)
 
 
 if __name__ == '__main__':

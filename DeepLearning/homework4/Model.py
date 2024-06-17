@@ -217,3 +217,36 @@ class Decoder(nn.Module):
             x = block(x, encoder_out, mask1, mask2)
 
         return x
+
+
+class Transformer(nn.Module):
+    def __init__(
+            self,
+            src_vocab_size: int,
+            target_vocab_size: int,
+            emb_size: int,
+            hidden_size: int,
+            head: int,
+            ffw_size: int,
+            num_layers: int,
+            attn_dropout: float = 0.1,
+            ffw_dropout: float = 0.1,
+            emb_dropout: float = 0.1,
+            max_token: int = 200
+    ):
+        super(Transformer, self).__init__()
+
+        self.encoder = Encoder(
+            src_vocab_size, emb_size, hidden_size, head, ffw_size, num_layers, attn_dropout, ffw_dropout, emb_dropout, max_token
+        )
+        self.decoder = Decoder(
+            target_vocab_size, emb_size, hidden_size, head, ffw_size, num_layers, attn_dropout, ffw_dropout, emb_dropout, max_token
+        )
+        self.liner = nn.Linear(emb_size, target_vocab_size)
+
+    def forward(self, src: Tensor, target: Tensor):
+        encoder_output = self.encoder(src)
+        decoder_output = self.decoder(target, src, encoder_output)
+        output = self.liner(decoder_output)
+
+        return output
