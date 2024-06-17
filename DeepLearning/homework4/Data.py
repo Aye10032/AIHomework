@@ -36,10 +36,10 @@ class TransData(Dataset):
         self.__load_data()
 
     def __getitem__(self, item):
-        return self.src_tensor[item], self.target_tensor[item]
+        return self.src_ids[item], self.target_ids[item]
 
     def __len__(self):
-        return self.src_tensor.shape[0]
+        return len(self.src_ids)
 
     def __build_tokenizer(self):
         logger.info('building tokenizer...')
@@ -62,27 +62,23 @@ class TransData(Dataset):
             target_lines = [['<SOB>'] + line.strip().split(' ') + ['<EOB>'] for line in f]
 
         logger.info('tokenize src...')
-        src_ids = []
+        self.src_ids = []
         for line in tqdm(src_lines):
-            src_ids.append(torch.LongTensor([
+            self.src_ids.append(torch.LongTensor([
                 self.src_word2id[word]
                 if word in self.src_word2id else
                 self.src_word2id['<UNK>']
                 for word in line
             ]))
 
-        target_ids = []
+        self.target_ids = []
         for line in tqdm(target_lines):
-            target_ids.append(torch.LongTensor([
+            self.target_ids.append(torch.LongTensor([
                 self.target_word2id[word]
                 if word in self.target_word2id else
                 self.target_word2id['<UNK>']
                 for word in line
             ]))
-
-        logger.info('padding dataset...')
-        self.src_tensor = pad_sequence(src_ids, True, self.src_word2id['<PAD>'])
-        self.target_tensor = pad_sequence(target_ids, True, self.target_word2id['<PAD>'])
 
 
 def main() -> None:

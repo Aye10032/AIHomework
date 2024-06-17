@@ -1,4 +1,7 @@
 EMB_DROPOUT: float = 0.1
 MAX_TOKEN: int = 200
 
+UNK_IDX = 0
+SOB_IDX = 1
+EOB_IDX = 2
 PAD_IDX = 3
