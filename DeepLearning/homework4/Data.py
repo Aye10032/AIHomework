@@ -7,6 +7,8 @@ from torch.nn.utils.rnn import pad_sequence
 from loguru import logger
 from tqdm import tqdm
 
+from Config import PAD_IDX
+
 
 class DataType(IntEnum):
     TRAIN = 0
@@ -36,10 +38,10 @@ class TransData(Dataset):
         self.__load_data()
 
     def __getitem__(self, item):
-        return self.src_ids[item], self.target_ids[item]
+        return self.pad_src[item], self.pad_target[item]
 
     def __len__(self):
-        return len(self.src_ids)
+        return self.pad_src.shape[0]
 
     def __build_tokenizer(self):
         logger.info('building tokenizer...')
@@ -61,24 +63,28 @@ class TransData(Dataset):
         with open(self.target_file, 'r', encoding='utf-8') as f:
             target_lines = [['<SOB>'] + line.strip().split(' ') + ['<EOB>'] for line in f]
 
-        logger.info('tokenize src...')
-        self.src_ids = []
+        logger.info('tokenize sentences...')
+        src_ids = []
         for line in tqdm(src_lines):
-            self.src_ids.append(torch.LongTensor([
+            src_ids.append(torch.LongTensor([
                 self.src_word2id[word]
                 if word in self.src_word2id else
                 self.src_word2id['<UNK>']
                 for word in line
             ]))
 
-        self.target_ids = []
+        target_ids = []
         for line in tqdm(target_lines):
-            self.target_ids.append(torch.LongTensor([
+            target_ids.append(torch.LongTensor([
                 self.target_word2id[word]
                 if word in self.target_word2id else
                 self.target_word2id['<UNK>']
                 for word in line
             ]))
+
+        logger.info('padding sentence...')
+        self.pad_src = pad_sequence(src_ids, True, PAD_IDX)
+        self.pad_target = pad_sequence(target_ids, True, PAD_IDX)
 
 
 def main() -> None:
