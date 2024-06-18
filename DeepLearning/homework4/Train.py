@@ -45,6 +45,7 @@ def train(
 
         optimizer.zero_grad()
         accelerator.backward(loss)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
         optimizer.step()
 
         train_loss.append(loss.item())
@@ -103,8 +104,8 @@ def valid(
     if accelerator.is_local_main_process:
         result = metric.compute()
 
-        writer.add_scalar('Train/loss', np.mean(global_valid_loss), epoch)
-        writer.add_scalar('Train/acc', 100. * result['accuracy'], epoch)
+        writer.add_scalar('Valid/loss', np.mean(global_valid_loss), epoch)
+        writer.add_scalar('Valid/acc', 100. * result['accuracy'], epoch)
 
         writer.flush()
 
