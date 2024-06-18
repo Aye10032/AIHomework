@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-EPOCH = 5
+EPOCH = 200
 LR = 1e-3
 
 UNK_IDX = 0
