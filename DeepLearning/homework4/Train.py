@@ -6,10 +6,11 @@ import torch.nn
 from accelerate import Accelerator, DataLoaderConfiguration
 from evaluate import EvaluationModule
 from torch import Tensor, nn
-from torch.nn.utils.rnn import pad_sequence
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+from loguru import logger
 
 from Data import TransData, DataType
 from Model import Transformer
@@ -70,8 +71,10 @@ def valid(
         model: nn.Module,
         accelerator: Accelerator,
         criterion: torch.nn.CrossEntropyLoss,
+        scheduler: ReduceLROnPlateau,
         dataloader: DataLoader,
         metric: EvaluationModule,
+        best_acc: float,
         writer: SummaryWriter,
         epoch: int
 ):
@@ -102,12 +105,18 @@ def valid(
 
     accelerator.wait_for_everyone()
     if accelerator.is_local_main_process:
+        scheduler.step(np.mean(global_valid_loss), epoch)
+        writer.add_scalar('lr', scheduler.get_last_lr()[0], epoch)
+
         result = metric.compute()
+        best_acc = max(best_acc, 100. * result['accuracy'])
 
         writer.add_scalar('Valid/loss', np.mean(global_valid_loss), epoch)
-        writer.add_scalar('Valid/acc', 100. * result['accuracy'], epoch)
+        writer.add_scalar('Valid/acc', best_acc, epoch)
 
         writer.flush()
+
+    return best_acc
 
 
 def main() -> None:
@@ -130,6 +139,16 @@ def main() -> None:
     optimizer = torch.optim.Adam(net.parameters(), LR)
     optimizer = accelerator.prepare_optimizer(optimizer)
 
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode='min',
+        factor=0.9,
+        patience=10,
+        cooldown=0,
+        min_lr=1e-8
+    )
+    scheduler = accelerator.prepare_scheduler(scheduler)
+
     writer = SummaryWriter(
         log_dir=f"runs/head{config.head}_layer{config.num_layers}_emb{config.emb_size}_hidden{config.hidden_size}_mlp{config.ffw_size}_{EPOCH}")
 
@@ -140,9 +159,15 @@ def main() -> None:
     #     print(net)
     metric = evaluate.load('accuracy')
 
+    best_acc = 0.
     for epoch in range(EPOCH):
         train(net, accelerator, criterion, optimizer, train_loader, metric, writer, epoch)
-        valid(net, accelerator, criterion, valid_loader, metric, writer, epoch)
+        new_acc = valid(net, accelerator, criterion, scheduler, valid_loader, metric, best_acc, writer, epoch)
+
+        if new_acc > best_acc:
+            logger.info('save best model')
+            torch.save(net.state_dict(), 'model/model.pth')
+            best_acc = new_acc
 
 
 if __name__ == '__main__':
