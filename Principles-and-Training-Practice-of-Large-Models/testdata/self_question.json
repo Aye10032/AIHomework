@@ -1,0 +1,44 @@
+[
+  {
+    "instruction": "Talk about gene ZNF107.",
+    "input": "",
+    "output": "",
+    "answer": "This gene encodes a protein containing multiple C2H2-type zinc finger regions. Proteins containing zinc fingers may act as transcriptional regulators, but may also have other cellular functions. Alternative splicing results in multiple transcript variants."
+  },
+  {
+    "instruction": "Mutations in which gene cause cystic fibrosis?",
+    "input": "",
+    "output": "",
+    "answer": "CFTR"
+  },
+  {
+    "instruction": "What do you know about gene EZH2?",
+    "input": "",
+    "output": "",
+    "answer": "This gene encodes a member of the Polycomb-group (PcG) family. PcG family members form multimeric protein complexes, which are involved in maintaining the transcriptional repressive state of genes over successive cell generations. This protein associates with the embryonic ectoderm development protein, the VAV1 oncoprotein, and the X-linked nuclear protein. This protein may play a role in the hematopoietic and central nervous systems. Multiple alternatively splcied transcript variants encoding distinct isoforms have been identified for this gene."
+  },
+  {
+    "instruction": "描述一下基因IL6",
+    "input": "",
+    "output": "",
+    "answer": "This gene encodes a cytokine that functions in inflammation and the maturation of B cells. In addition, the encoded protein has been shown to be an endogenous pyrogen capable of inducing fever in people with autoimmune diseases or infections. The protein is primarily produced at sites of acute and chronic inflammation, where it is secreted into the serum and induces a transcriptional inflammatory response through interleukin 6 receptor, alpha. The functioning of this gene is implicated in a wide variety of inflammation-associated disease states, including suspectibility to diabetes mellitus and systemic juvenile rheumatoid arthritis. Elevated levels of the encoded protein have been found in virus infections, including COVID-19 (disease caused by SARS-CoV-2)."
+  },
+  {
+    "instruction": "关于基因INHBA你知道些什么？",
+    "input": "",
+    "output": "",
+    "answer": "This gene encodes a member of the TGF-beta (transforming growth factor-beta) superfamily of proteins. The encoded preproprotein is proteolytically processed to generate a subunit of the dimeric activin and inhibin protein complexes. These complexes activate and inhibit, respectively, follicle stimulating hormone secretion from the pituitary gland. The encoded protein also plays a role in eye, tooth and testis development. Elevated expression of this gene may be associated with cancer cachexia in human patients."
+  },
+  {
+    "instruction": "Elaborate on the significance of EXOC4 in cellular functions",
+    "input": "",
+    "output": "",
+    "answer": "The protein encoded by this gene is a component of the exocyst complex, a multiple protein complex essential for targeting exocytic vesicles to specific docking sites on the plasma membrane. Though best characterized in yeast, the component proteins and functions of exocyst complex have been demonstrated to be highly conserved in higher eukaryotes. At least eight components of the exocyst complex, including this protein, are found to interact with the actin cytoskeletal remodeling and vesicle transport machinery. The complex is also essential for the biogenesis of epithelial cell surface polarity. Alternate transcriptional splice variants, encoding different isoforms, have been characterized."
+  },
+  {
+    "instruction": "What do you know about gene RABGEF1?",
+    "input": "",
+    "output": "",
+    "answer": "RABGEF1 forms a complex with rabaptin-5 (RABPT5; MIM 603616) that is required for endocytic membrane fusion, and it serves as a specific guanine nucleotide exchange factor (GEF) for RAB5 (RAB5A; MIM 179512)"
+  }
+]
