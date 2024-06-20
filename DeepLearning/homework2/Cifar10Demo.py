@@ -10,6 +10,7 @@ from torchvision.transforms import (
     CenterCrop,
     RandomHorizontalFlip,
     RandomRotation,
+    ElasticTransform,
     ColorJitter,
     ToTensor,
     Normalize
@@ -48,6 +49,7 @@ def main() -> None:
         RandomHorizontalFlip(),
         RandomRotation(45),
         ColorJitter(0.5, 0.5, 0.5),
+        ElasticTransform(),
         ToTensor(),
         Normalize(
             mean=[0.485, 0.456, 0.406],
@@ -70,7 +72,7 @@ def main() -> None:
 
     labels = test_set.classes
 
-    train_loader = DataLoader(train_set, batch_size=256, shuffle=True, num_workers=4)
+    train_loader = DataLoader(train_set, batch_size=256, shuffle=True, num_workers=32)
     test_loader = DataLoader(test_set, batch_size=256, shuffle=False, num_workers=4)
 
     net = ViT(
@@ -111,7 +113,7 @@ def main() -> None:
     else:
         scheduler = None
 
-    model_name = f'cif10_head{heads}_layer{layers}_dim{dim}_hidden{hidden_size}_mlp{mlp_size}_{max_epoch}+'
+    model_name = f'cif10_head{heads}_layer{layers}_dim{dim}_hidden{hidden_size}_mlp{mlp_size}_{max_epoch}++'
     writer = SummaryWriter(log_dir=f'runs/{model_name}')
     train_metric = evaluate.load('accuracy')
     test_metric = evaluate.combine(['accuracy', 'confusion_matrix'])
@@ -121,7 +123,7 @@ def main() -> None:
         train(net, optimizer, scheduler, accelerator, i, train_loader, writer, train_metric)
 
         if i % 5 == 0:
-            best_acc = test(net, accelerator, i, test_loader, writer, test_metric, best_acc, labels, model_name)
+            best_acc = test(net, accelerator, i, test_loader, writer, test_metric, best_acc, model_name)
 
 
 if __name__ == '__main__':

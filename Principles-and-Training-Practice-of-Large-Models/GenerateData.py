@@ -70,11 +70,12 @@ def concat_json(about: list):
             'input': '',
             'output': location
         } for instruction in instructions]
+        messages = messages * 2
         result.extend(messages)
 
     print(len(result))
 
-    about = about * 14
+    about = about * 500
     print(len(about))
     result.extend(about)
 

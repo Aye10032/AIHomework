@@ -261,7 +261,7 @@ def sparse_selection(net: nn.Module):
 def train(
         net: nn.Module,
         optimizer: torch.optim.Optimizer,
-        schedule: torch.optim.lr_scheduler.ReduceLROnPlateau,
+        schedule: torch.optim.lr_scheduler.CosineAnnealingLR,
         accelerator: Accelerator,
         epoch: int,
         train_loader: DataLoader,
