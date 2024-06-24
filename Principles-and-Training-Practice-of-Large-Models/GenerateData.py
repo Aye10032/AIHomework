@@ -37,7 +37,7 @@ def concat_json(about: list):
     df = pd.read_csv('gene.csv', encoding='utf-8')
     for index, row in df.iterrows():
         gene_name = row.gene
-        summary = row.summary
+        summary: str = row.summary
         location = row.location
 
         instructions = [
@@ -55,7 +55,7 @@ def concat_json(about: list):
         messages = [{
             'instruction': instruction,
             'input': '',
-            'output': summary
+            'output': summary.replace('The gene', gene_name).replace('This gene', gene_name)
         } for instruction in instructions]
         result.extend(messages)
 
@@ -72,6 +72,10 @@ def concat_json(about: list):
         } for instruction in instructions]
         messages = messages * 2
         result.extend(messages)
+
+    json_data = json.dumps(result)
+    with open('task_data.json', 'w', encoding='utf-8') as f:
+        f.write(json_data)
 
     print(len(result))
 
