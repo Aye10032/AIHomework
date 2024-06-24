@@ -261,7 +261,7 @@ def sparse_selection(net: nn.Module):
 def train(
         net: nn.Module,
         optimizer: torch.optim.Optimizer,
-        schedule: torch.optim.lr_scheduler.CosineAnnealingLR,
+        schedule: torch.optim.lr_scheduler.ReduceLROnPlateau,
         accelerator: Accelerator,
         epoch: int,
         train_loader: DataLoader,
@@ -273,7 +273,7 @@ def train(
 
     :param net: 要训练的网络，继承自nn.Module。
     :param optimizer: 用于优化网络参数的优化器，来自torch.optim。
-    :param schedule: 学习率调度器，用于动态调整学习率，此处为ReduceLROnPlateau。
+    :param schedule: 调度器，更新学习率
     :param accelerator: 分布式计算对象
     :param epoch: 当前训练的轮次。
     :param train_loader: 训练数据的加载器，来自torch.utils.data.DataLoader。
@@ -306,9 +306,6 @@ def train(
         sparse_selection(net)
         optimizer.step()
 
-        if schedule is not None:
-            schedule.step()
-
         train_loss.append(loss.item())
         _, predicted = outputs.max(1)
 
@@ -321,6 +318,7 @@ def train(
     if accelerator.is_local_main_process:
         result = metric.compute()
 
+        schedule.step(np.mean(global_train_loss), epoch)
         writer.add_scalar('lr', schedule.get_last_lr()[0], epoch)
 
         writer.add_scalar('Train/loss', np.mean(global_train_loss), epoch)
