@@ -3,7 +3,6 @@ from typing import Tuple
 import numpy as np
 import torch
 from torch import Tensor
-from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 
 
@@ -16,9 +15,6 @@ class TangData(Dataset):
         self.max_length = max_length
 
         self.inputs, self.targets = self.resize_data(data)
-        # for i in self.padded_tensor[-1]:
-        #     print(self.ix2word[i.item()], end='')
-        # print()
 
     def __len__(self):
         return self.inputs.shape[0]
@@ -37,12 +33,14 @@ class TangData(Dataset):
 
         inputs = result[:-1].view(-1, self.max_length)
         targets = result[1:].view(-1, self.max_length)
-        #
-        # for i in inputs[0]:
-        #     print(self.ix2word[i.item()], end='')
-        # print()
-        # for i in targets[0]:
-        #     print(self.ix2word[i.item()], end='')
-        # print()
 
         return inputs, targets
+
+
+def main() -> None:
+    dataset = TangData()
+    print(dataset.ix2word[8292])
+
+
+if __name__ == '__main__':
+    main()

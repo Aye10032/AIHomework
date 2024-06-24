@@ -43,7 +43,7 @@ def main() -> None:
     ix2word = dataset.ix2word
     word2ix = dataset.word2ix
 
-    model = PoetryModel(len(word2ix), 1024, 512).cuda()
+    model = PoetryModel(len(word2ix), 128, 1024, 3).cuda()
     model.load_state_dict(torch.load('model/model.pth'))
 
     model_output = generate(model, args.input, ix2word, word2ix)
