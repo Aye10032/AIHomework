@@ -58,10 +58,16 @@ class TransData(Dataset):
     def __load_data(self):
         logger.info('loading dataset...')
         with open(self.src_file, 'r', encoding='utf-8') as f:
-            src_lines = [['<SOB>'] + line.strip().split(' ') + ['<EOB>'] for line in f]
+            src_lines = [
+                ['<SOB>'] + line.strip().split(' ') + ['<EOB>']
+                for line in f
+            ]
 
         with open(self.target_file, 'r', encoding='utf-8') as f:
-            target_lines = [['<SOB>'] + line.strip().split(' ') + ['<EOB>'] for line in f]
+            target_lines = [
+                ['<SOB>'] + line.strip().split(' ') + ['<EOB>']
+                for line in f
+            ]
 
         logger.info('tokenize sentences...')
         src_ids = []
