@@ -23,7 +23,7 @@ def train(
         criterion: torch.nn.CrossEntropyLoss,
         optimizer: torch.optim.Adam,
         dataloader: DataLoader,
-        metric: EvaluationModule,
+        acc_metric: EvaluationModule,
         writer: SummaryWriter,
         epoch: int
 ):
@@ -53,16 +53,16 @@ def train(
         predicted = outputs.argmax(-1)
 
         global_predictions, global_targets = accelerator.gather_for_metrics((predicted.flatten(), real_target.flatten()))
-        metric.add_batch(predictions=global_predictions, references=global_targets)
+        acc_metric.add_batch(predictions=global_predictions, references=global_targets)
 
     global_train_loss = accelerator.gather_for_metrics(train_loss)
 
     accelerator.wait_for_everyone()
     if accelerator.is_local_main_process:
-        result = metric.compute()
+        acc_result = acc_metric.compute()
 
         writer.add_scalar('Train/loss', np.mean(global_train_loss), epoch)
-        writer.add_scalar('Train/acc', 100. * result['accuracy'], epoch)
+        writer.add_scalar('Train/acc', 100. * acc_result['accuracy'], epoch)
 
         writer.flush()
 
@@ -73,7 +73,7 @@ def valid(
         criterion: torch.nn.CrossEntropyLoss,
         scheduler: ReduceLROnPlateau,
         dataloader: DataLoader,
-        metric: EvaluationModule,
+        acc_metric: EvaluationModule,
         best_acc: float,
         writer: SummaryWriter,
         epoch: int
@@ -99,7 +99,7 @@ def valid(
         predicted = outputs.argmax(-1).long()
 
         global_predictions, global_targets = accelerator.gather_for_metrics((predicted.flatten(), real_target.flatten()))
-        metric.add_batch(predictions=global_predictions, references=global_targets)
+        acc_metric.add_batch(predictions=global_predictions, references=global_targets)
 
     global_valid_loss = accelerator.gather_for_metrics(valid_loss)
 
@@ -108,8 +108,8 @@ def valid(
         scheduler.step(np.mean(global_valid_loss), epoch)
         writer.add_scalar('lr', scheduler.get_last_lr()[0], epoch)
 
-        result = metric.compute()
-        best_acc = max(best_acc, 100. * result['accuracy'])
+        acc_result = acc_metric.compute()
+        best_acc = max(best_acc, 100. * acc_result['accuracy'])
 
         writer.add_scalar('Valid/loss', np.mean(global_valid_loss), epoch)
         writer.add_scalar('Valid/acc', best_acc, epoch)
@@ -128,11 +128,11 @@ def main() -> None:
     net = accelerator.prepare_model(net)
 
     train_set = TransData('data', DataType.TRAIN)
-    train_loader = DataLoader(train_set, batch_size=128, shuffle=True)
+    train_loader = DataLoader(train_set, batch_size=128, num_workers=8, persistent_workers=True, shuffle=True)
     train_loader = accelerator.prepare_data_loader(train_loader)
 
     valid_set = TransData('data', DataType.VALID)
-    valid_loader = DataLoader(valid_set, batch_size=128, shuffle=True)
+    valid_loader = DataLoader(valid_set, batch_size=128, num_workers=4, persistent_workers=True, shuffle=True)
     valid_loader = accelerator.prepare_data_loader(valid_loader)
 
     criterion = torch.nn.CrossEntropyLoss(ignore_index=PAD_IDX)
@@ -157,12 +157,12 @@ def main() -> None:
     #         test_data, test_target = next(iter(train_loader))
     #         test_data, test_target = test_data.to(accelerator.device), test_target.to(accelerator.device)
     #         writer.add_graph(net, input_to_model=[test_data, test_target], use_strict_trace=False)
-    metric = evaluate.load('accuracy')
+    acc_metric = evaluate.load('accuracy')
 
     best_acc = 0.
     for epoch in range(EPOCH):
-        train(net, accelerator, criterion, optimizer, train_loader, metric, writer, epoch)
-        new_acc = valid(net, accelerator, criterion, scheduler, valid_loader, metric, best_acc, writer, epoch)
+        train(net, accelerator, criterion, optimizer, train_loader, acc_metric, writer, epoch)
+        new_acc = valid(net, accelerator, criterion, scheduler, valid_loader, acc_metric, best_acc, writer, epoch)
 
         if new_acc > best_acc:
             logger.info('save best model')
