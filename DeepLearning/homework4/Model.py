@@ -242,10 +242,11 @@ class Transformer(nn.Module):
             target_vocab_size, emb_size, hidden_size, head, ffw_size, num_layers, attn_dropout, ffw_dropout, emb_dropout, max_token
         )
         self.liner = nn.Linear(emb_size, target_vocab_size)
+        self.softmax = nn.Softmax()
 
     def forward(self, src: Tensor, target: Tensor):
         encoder_output = self.encoder(src)
         decoder_output = self.decoder(target, src, encoder_output)
         output = self.liner(decoder_output)
 
-        return output
+        return self.softmax(output)

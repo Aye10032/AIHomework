@@ -152,11 +152,11 @@ def main() -> None:
     writer = SummaryWriter(
         log_dir=f"runs/head{config.head}_layer{config.num_layers}_emb{config.emb_size}_hidden{config.hidden_size}_mlp{config.ffw_size}_{EPOCH}")
 
-    # with torch.no_grad():
-    #     test_data, test_target = next(iter(train_loader))
-    #     test_data, test_target = test_data.cuda(), test_target.cuda()
-    #     writer.add_graph(net, input_to_model=[test_data, test_target])
-    #     print(net)
+    # if accelerator.is_local_main_process:
+    #     with torch.no_grad():
+    #         test_data, test_target = next(iter(train_loader))
+    #         test_data, test_target = test_data.to(accelerator.device), test_target.to(accelerator.device)
+    #         writer.add_graph(net, input_to_model=[test_data, test_target], use_strict_trace=False)
     metric = evaluate.load('accuracy')
 
     best_acc = 0.
