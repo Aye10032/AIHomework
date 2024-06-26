@@ -4,8 +4,8 @@ EPOCH = 200
 LR = 1e-3
 
 UNK_IDX = 0
-SOB_IDX = 1
-EOB_IDX = 2
+BOS_IDX = 1
+EOS_IDX = 2
 PAD_IDX = 3
 
 

@@ -8,7 +8,7 @@ from torch.nn.utils.rnn import pad_sequence
 from loguru import logger
 from tqdm import tqdm
 
-from Config import PAD_IDX, EOB_IDX, SOB_IDX
+from Config import PAD_IDX, EOS_IDX, BOS_IDX
 
 
 class DataType(IntEnum):
@@ -38,7 +38,7 @@ class Tokenizer:
         output_list = [
             self.i2w[idx.item()]
             for idx in tensor
-            if idx not in [PAD_IDX, EOB_IDX, SOB_IDX]
+            if idx not in [PAD_IDX, BOS_IDX, EOS_IDX]
         ]
 
         return ' '.join(output_list)
@@ -92,13 +92,13 @@ class TransData(Dataset):
             logger.info('loading dataset...')
         with open(self.src_file, 'r', encoding='utf-8') as f:
             src_lines = [
-                ['<SOB>'] + line.strip().split(' ') + ['<EOB>']
+                ['<BOS>'] + line.strip().split(' ') + ['<EOS>']
                 for line in f
             ]
 
         with open(self.tgt_file, 'r', encoding='utf-8') as f:
             tgt_lines = [
-                ['<SOB>'] + line.strip().split(' ') + ['<EOB>']
+                ['<BOS>'] + line.strip().split(' ') + ['<EOS>']
                 for line in f
             ]
 
