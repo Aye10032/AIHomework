@@ -127,11 +127,11 @@ def main() -> None:
     net = Transformer(**asdict(config))
     net = accelerator.prepare_model(net)
 
-    train_set = TransData('data', DataType.TRAIN)
-    train_loader = DataLoader(train_set, batch_size=128, num_workers=8, persistent_workers=True, shuffle=True)
+    train_set = TransData('data', DataType.TRAIN, accelerator.is_local_main_process)
+    train_loader = DataLoader(train_set, batch_size=256, num_workers=16, persistent_workers=True, shuffle=True)
     train_loader = accelerator.prepare_data_loader(train_loader)
 
-    valid_set = TransData('data', DataType.VALID)
+    valid_set = TransData('data', DataType.VALID, accelerator.is_local_main_process)
     valid_loader = DataLoader(valid_set, batch_size=128, num_workers=4, persistent_workers=True, shuffle=True)
     valid_loader = accelerator.prepare_data_loader(valid_loader)
 
@@ -143,7 +143,7 @@ def main() -> None:
         optimizer,
         mode='min',
         factor=0.5,
-        patience=10,
+        patience=5,
         cooldown=0,
     )
     scheduler = accelerator.prepare_scheduler(scheduler)
