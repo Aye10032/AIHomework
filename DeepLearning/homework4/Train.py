@@ -142,10 +142,9 @@ def main() -> None:
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         mode='min',
-        factor=0.9,
+        factor=0.5,
         patience=10,
         cooldown=0,
-        min_lr=1e-8
     )
     scheduler = accelerator.prepare_scheduler(scheduler)
 
