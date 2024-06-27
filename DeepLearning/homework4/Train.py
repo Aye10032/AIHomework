@@ -144,10 +144,10 @@ def main() -> None:
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         mode='min',
-        factor=0.5,
+        factor=0.8,
         patience=5,
-        cooldown=0,
-        min_lr=1e-8
+        cooldown=2,
+        min_lr=1e-7
     )
     scheduler = accelerator.prepare_scheduler(scheduler)
 
@@ -169,7 +169,8 @@ def main() -> None:
         accelerator.wait_for_everyone()
         if new_acc > best_acc:
             logger.info('save best model')
-            accelerator.save_model(net, 'model', '1GB', True)
+            unwrap_model = accelerator.unwrap_model(net)
+            accelerator.save_model(unwrap_model, 'model', '1GB', True)
             best_acc = new_acc
 
 
