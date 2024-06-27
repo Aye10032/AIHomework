@@ -12,7 +12,7 @@ class EmbeddingWithPosition(nn.Module):
         self.word_embedding = nn.Embedding(vocab_size, emb_size)
 
         position_idx = torch.arange(0, max_token, dtype=torch.float).unsqueeze(-1)
-        position_emb = position_idx * torch.exp(-torch.arange(0, emb_size, 2) * math.log(1000.0) / emb_size)
+        position_emb = position_idx * torch.exp(-torch.arange(0, emb_size, 2) * math.log(10000.0) / emb_size)
         position_encoding = torch.zeros(max_token, emb_size)
         position_encoding[:, 0::2] = torch.sin(position_emb)
         position_encoding[:, 1::2] = torch.cos(position_emb)
@@ -43,20 +43,21 @@ class MultiHeadAttention(nn.Module):
 
         self.output = nn.Linear(head * hidden_size, emb_size)
 
-    def forward(self, x_vk: Tensor, x_q: Tensor, attn_mask: Tensor):
+    def forward(self, x_kv: Tensor, x_q: Tensor, attn_mask: Tensor):
         # (batch_size, seq_length, emb_size)
         # -> (batch_size, seq_length, head * hidden_size)
         q: Tensor = self.w_q(x_q)
-        k: Tensor = self.w_k(x_vk)
-        v: Tensor = self.w_v(x_vk)
+        k: Tensor = self.w_k(x_kv)
+        v: Tensor = self.w_v(x_kv)
 
+        # -> (batch_size, seq_length, head, hidden_size)
         # -> (batch_size, head, seq_length, hidden_size)
         q = q.view((q.shape[0], q.shape[1], self.head, self.hidden_size)).transpose(1, 2)
         k = k.view((k.shape[0], k.shape[1], self.head, self.hidden_size)).transpose(1, 2)
         v = v.view((v.shape[0], v.shape[1], self.head, self.hidden_size)).transpose(1, 2)
+
         # -> (batch_size, head, hidden_size, seq_length)
         k = k.transpose(2, 3)
-
         # -> (batch_size, head, seq_length, seq_length)
         attn = torch.matmul(q, k) / math.sqrt(self.hidden_size)
 
@@ -103,15 +104,15 @@ class EncoderBlock(nn.Module):
         self.ffw_norm = nn.LayerNorm(emb_size)
         self.ffw_drop = nn.Dropout(ffw_dropout)
 
-    def forward(self, x: Tensor, attn_mask: Tensor):
+    def forward(self, encoder_in: Tensor, attn_mask: Tensor):
         # (batch_size, seq_length, emb_size)
-        z = self.attn_layer(x, x, attn_mask)
-        output1 = self.attn_norm(x + self.attn_drop(z))
+        attn_out = self.attn_layer(encoder_in, encoder_in, attn_mask)
+        ffw_in = self.attn_norm(encoder_in + self.attn_drop(attn_out))
 
-        z = self.ffw_layer(output1)
-        output2 = self.ffw_norm(output1 + self.ffw_drop(z))
+        ffw_out = self.ffw_layer(ffw_in)
+        output = self.ffw_norm(ffw_in + self.ffw_drop(ffw_out))
 
-        return output2
+        return output
 
 
 class Encoder(nn.Module):
@@ -123,9 +124,9 @@ class Encoder(nn.Module):
             head: int,
             ffw_size: int,
             num_layers: int,
-            attn_dropout: float = 0.1,
-            ffw_dropout: float = 0.1,
-            emb_dropout: float = 0.1,
+            attn_dropout: float = 0.,
+            ffw_dropout: float = 0.,
+            emb_dropout: float = 0.,
             max_token: int = 200
     ):
         super(Encoder, self).__init__()
@@ -136,19 +137,19 @@ class Encoder(nn.Module):
         for i in range(num_layers):
             self.encoder_blocks.append(EncoderBlock(emb_size, hidden_size, head, ffw_size, attn_dropout, ffw_dropout))
 
-    def forward(self, x: Tensor):
+    def forward(self, encoder_in: Tensor):
         # (batch_size, 1, seq_length)
         # -> (batch_size, seq_length, seq_length)
-        mask: Tensor = (x == PAD_IDX).unsqueeze(1).repeat(1, x.shape[1], 1)
+        mask: Tensor = encoder_in.eq(PAD_IDX).unsqueeze(1).repeat(1, encoder_in.shape[1], 1)
 
         # (batch_size, seq_length)
         # -> (batch_size, seq_length, emb_size)
-        x = self.emb(x)
+        encoder_out = self.emb(encoder_in)
 
         for block in self.encoder_blocks:
-            x = block(x, mask)
+            encoder_out = block(encoder_out, mask)
 
-        return x
+        return encoder_out
 
 
 class DecoderBlock(nn.Module):
@@ -167,15 +168,15 @@ class DecoderBlock(nn.Module):
         self.ffw_norm = nn.LayerNorm(emb_size)
         self.ffw_drop = nn.Dropout(ffw_dropout)
 
-    def forward(self, x: Tensor, encoder_output: Tensor, mask1: Tensor, mask2: Tensor):
-        z = self.masked_attn_layer(x, x, mask1)
-        output1 = self.masked_attn_norm(x + self.masked_attn_norm(z))
+    def forward(self, decoder_in: Tensor, encoder_output: Tensor, decoder_mask: Tensor, cross_mask: Tensor):
+        mask_attn_out = self.masked_attn_layer(decoder_in, decoder_in, decoder_mask)
+        mask_attn_out = self.masked_attn_norm(decoder_in + self.masked_attn_norm(mask_attn_out))
 
-        z = self.attn_layer(encoder_output, output1, mask2)
-        output2 = self.attn_norm(output1 + self.attn_drop(z))
+        attn_out = self.attn_layer(encoder_output, mask_attn_out, cross_mask)
+        attn_out = self.attn_norm(mask_attn_out + self.attn_drop(attn_out))
 
-        z = self.ffw_layer(output2)
-        output = self.ffw_norm(output2 + self.ffw_drop(z))
+        ffw_out = self.ffw_layer(attn_out)
+        output = self.ffw_norm(attn_out + self.ffw_drop(ffw_out))
 
         return output
 
@@ -202,21 +203,21 @@ class Decoder(nn.Module):
         for i in range(num_layers):
             self.decoder_blocks.append(DecoderBlock(emb_size, hidden_size, head, ffw_size, attn_dropout, ffw_dropout))
 
-    def forward(self, x: Tensor, encoder_in: Tensor, encoder_out: Tensor):
+    def forward(self, decoder_in: Tensor, encoder_in: Tensor, encoder_out: Tensor):
         # (batch_size, seq_len, seq_len)
-        mask1: Tensor = (x == PAD_IDX).unsqueeze(1).repeat(1, x.shape[1], 1)
-        mask1_fill = torch.triu(torch.ones(x.shape[1], x.shape[1]), diagonal=1).bool().unsqueeze(0).repeat(x.shape[0], 1, 1).to(
-            mask1.device)
-        mask1 = mask1 | mask1_fill
+        decoder_mask: Tensor = decoder_in.eq(PAD_IDX).unsqueeze(1).repeat(1, decoder_in.shape[1], 1)
+        decoder_mask_fill = torch.triu(torch.ones(decoder_in.shape[1], decoder_in.shape[1]), diagonal=1)
+        decoder_mask_fill = decoder_mask_fill.bool().unsqueeze(0).repeat(decoder_in.shape[0], 1, 1).to(decoder_mask.device)
+        decoder_mask = decoder_mask | decoder_mask_fill
 
         # (batch_size, target_len, src_len)
-        mask2: Tensor = (encoder_in == PAD_IDX).unsqueeze(1).repeat(1, x.shape[1], 1)
-        x = self.emb(x)
+        cross_mask: Tensor = encoder_in.eq(PAD_IDX).unsqueeze(1).repeat(1, decoder_in.shape[1], 1)
+        decoder_in = self.emb(decoder_in)
 
         for block in self.decoder_blocks:
-            x = block(x, encoder_out, mask1, mask2)
+            decoder_in = block(decoder_in, encoder_out, decoder_mask, cross_mask)
 
-        return x
+        return decoder_in
 
 
 class Transformer(nn.Module):
@@ -245,17 +246,17 @@ class Transformer(nn.Module):
         self.liner = nn.Linear(emb_size, target_vocab_size)
         self.softmax = nn.Softmax(dim=-1)
 
-    def forward(self, src: Tensor, target: Tensor):
-        encoder_output = self.encoder(src)
-        decoder_output = self.decoder(target, src, encoder_output)
-        output = self.liner(decoder_output)
+    def forward(self, encoder_in: Tensor, decoder_in: Tensor):
+        encoder_out = self.encoder(encoder_in)
+        decoder_out = self.decoder(decoder_in, encoder_in, encoder_out)
+        output = self.liner(decoder_out)
 
         return self.softmax(output)
 
-    def encode(self, x: Tensor):
-        return self.encoder(x)
+    def encode(self, encoder_in: Tensor):
+        return self.encoder(encoder_in)
 
-    def decode(self, x: Tensor, encoder_in: Tensor, encoder_out: Tensor):
-        decoder_out = self.decoder(x, encoder_in, encoder_out)
+    def decode(self, decoder_in: Tensor, encoder_in: Tensor, encoder_out: Tensor):
+        decoder_out = self.decoder(decoder_in, encoder_in, encoder_out)
         decoder_out = self.liner(decoder_out)
         return self.softmax(decoder_out)
