@@ -34,10 +34,10 @@ class Tokenizer:
             for word in sentence
         ])
 
-    def detokenize(self, tensor: Tensor) -> str:
+    def detokenize(self, ids: Tensor) -> str:
         output_list = [
             self.i2w[idx.item()]
-            for idx in tensor
+            for idx in ids
             if idx not in [PAD_IDX, BOS_IDX, EOS_IDX]
         ]
 
