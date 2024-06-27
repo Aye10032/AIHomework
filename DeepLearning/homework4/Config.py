@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-EPOCH = 100
-LR = 2e-3
+EPOCH = 30
+LR = 1e-3
 
 UNK_IDX = 0
 BOS_IDX = 1
@@ -25,4 +25,4 @@ class ModelConfig:
 
     @classmethod
     def default_config(cls):
-        return cls(53713, 35029, 512, 64, 8, 2048, 6, 0.1, 0.1, 0.1, 200)
+        return cls(53713, 35029, 512, 256, 8, 1024, 6, 0.1, 0.1, 0.1, 200)

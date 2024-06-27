@@ -12,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from loguru import logger
 
-from Data import TransData, DataType
+from Data import TransData, DataType, collate_fn
 from Model import Transformer
 from Config import *
 
@@ -122,7 +122,7 @@ def valid(
 
 
 def main() -> None:
-    dataloader_config = DataLoaderConfiguration(split_batches=True)
+    dataloader_config = DataLoaderConfiguration(split_batches=True, dispatch_batches=True)
     accelerator = Accelerator(dataloader_config=dataloader_config)
 
     config = ModelConfig.default_config()
@@ -130,11 +130,11 @@ def main() -> None:
     net = accelerator.prepare_model(net)
 
     train_set = TransData('data', DataType.TRAIN, accelerator.is_local_main_process)
-    train_loader = DataLoader(train_set, batch_size=256, num_workers=16, persistent_workers=True, shuffle=True)
+    train_loader = DataLoader(train_set, batch_size=64, num_workers=32, persistent_workers=True, shuffle=False, collate_fn=collate_fn)
     train_loader = accelerator.prepare_data_loader(train_loader)
 
     valid_set = TransData('data', DataType.VALID, accelerator.is_local_main_process)
-    valid_loader = DataLoader(valid_set, batch_size=128, num_workers=4, persistent_workers=True, shuffle=True)
+    valid_loader = DataLoader(valid_set, batch_size=64, num_workers=4, persistent_workers=True, shuffle=False, collate_fn=collate_fn)
     valid_loader = accelerator.prepare_data_loader(valid_loader)
 
     criterion = torch.nn.CrossEntropyLoss(ignore_index=PAD_IDX)

@@ -66,10 +66,10 @@ class TransData(Dataset):
         self.__load_data(show_log)
 
     def __getitem__(self, item):
-        return self.pad_src[item], self.pad_tgt[item]
+        return self.src_ids[item], self.tgt_ids[item]
 
     def __len__(self):
-        return self.pad_src.shape[0]
+        return len(self.src_ids)
 
     def __build_tokenizer(self, show_log: bool):
         if show_log:
@@ -112,8 +112,8 @@ class TransData(Dataset):
         for line in tqdm(tgt_lines, disable=not show_log):
             self.tgt_ids.append(self.tgt_tokenizer.tokenize(line))
 
-        self.pad_src = pad_sequence(self.src_ids, True, PAD_IDX)
-        self.pad_tgt = pad_sequence(self.tgt_ids, True, PAD_IDX)
+        # self.pad_src = pad_sequence(self.src_ids, True, PAD_IDX)
+        # self.pad_tgt = pad_sequence(self.tgt_ids, True, PAD_IDX)
 
 
 def collate_fn(batch: list[tuple[Tensor, Tensor]]):
@@ -132,7 +132,7 @@ def collate_fn(batch: list[tuple[Tensor, Tensor]]):
 def main() -> None:
     dataset = TransData('data', DataType.TRAIN, True)
     logger.info('build dataloader')
-    dataloader = DataLoader(dataset, batch_size=128, shuffle=False, num_workers=4, persistent_workers=True)
+    dataloader = DataLoader(dataset, batch_size=2, shuffle=False, num_workers=4, persistent_workers=True)
     logger.info('done')
     data0 = next(iter(dataloader))
     print(dataset.src_tokenizer.detokenize(data0[0][0]))
