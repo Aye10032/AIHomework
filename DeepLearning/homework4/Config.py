@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 EPOCH = 100
-LR = 1e-3
+LR = 2e-3
 
 UNK_IDX = 0
 BOS_IDX = 1
