@@ -22,6 +22,7 @@ def train(
         accelerator: Accelerator,
         criterion: torch.nn.CrossEntropyLoss,
         optimizer: torch.optim.Adam,
+        scheduler: ReduceLROnPlateau,
         dataloader: DataLoader,
         acc_metric: EvaluationModule,
         writer: SummaryWriter,
@@ -46,7 +47,8 @@ def train(
 
         optimizer.zero_grad()
         accelerator.backward(loss)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
+        if accelerator.sync_gradients:
+            accelerator.clip_grad_norm_(model.parameters(), 1)
         optimizer.step()
 
         train_loss.append(loss.item())
@@ -56,10 +58,14 @@ def train(
         acc_metric.add_batch(predictions=global_predictions, references=global_targets)
 
     global_train_loss = accelerator.gather_for_metrics(train_loss)
+    if not accelerator.optimizer_step_was_skipped:
+        scheduler.step(np.mean(global_train_loss), epoch)
 
     accelerator.wait_for_everyone()
     if accelerator.is_local_main_process:
         acc_result = acc_metric.compute()
+
+        writer.add_scalar('lr', scheduler.get_last_lr()[0], epoch)
 
         writer.add_scalar('Train/loss', np.mean(global_train_loss), epoch)
         writer.add_scalar('Train/acc', 100. * acc_result['accuracy'], epoch)
@@ -71,7 +77,6 @@ def valid(
         model: nn.Module,
         accelerator: Accelerator,
         criterion: torch.nn.CrossEntropyLoss,
-        scheduler: ReduceLROnPlateau,
         dataloader: DataLoader,
         acc_metric: EvaluationModule,
         best_acc: float,
@@ -105,9 +110,6 @@ def valid(
 
     accelerator.wait_for_everyone()
     if accelerator.is_local_main_process:
-        scheduler.step(np.mean(global_valid_loss), epoch)
-        writer.add_scalar('lr', scheduler.get_last_lr()[0], epoch)
-
         acc_result = acc_metric.compute()
         best_acc = max(best_acc, 100. * acc_result['accuracy'])
 
@@ -145,6 +147,7 @@ def main() -> None:
         factor=0.5,
         patience=5,
         cooldown=0,
+        min_lr=1e-8
     )
     scheduler = accelerator.prepare_scheduler(scheduler)
 
@@ -160,12 +163,13 @@ def main() -> None:
 
     best_acc = 0.
     for epoch in range(EPOCH):
-        train(net, accelerator, criterion, optimizer, train_loader, acc_metric, writer, epoch)
-        new_acc = valid(net, accelerator, criterion, scheduler, valid_loader, acc_metric, best_acc, writer, epoch)
+        train(net, accelerator, criterion, optimizer, scheduler, train_loader, acc_metric, writer, epoch)
+        new_acc = valid(net, accelerator, criterion, valid_loader, acc_metric, best_acc, writer, epoch)
 
+        accelerator.wait_for_everyone()
         if new_acc > best_acc:
             logger.info('save best model')
-            torch.save(net.state_dict(), 'model/model.pth')
+            accelerator.save_model(net, 'model', '1GB', True)
             best_acc = new_acc
 
 
